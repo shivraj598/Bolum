@@ -7,13 +7,49 @@
     <link rel="stylesheet" href="/src/style.css" />
   </head>
   <body>
-    <main>
+    <header>
       <h1>Bolum</h1>
-      <p class="hint">
-        Push-to-talk dictation for Linux. The settings interface and the
-        dictation pipeline arrive with the next commits.
-      </p>
+      <span id="status-pill" class="pill idle">idle</span>
+      <div id="meter"><i id="level-bar"></i></div>
+      <button id="dictate">Dictate</button>
+    </header>
+
+    <nav id="tabs">
+      <button data-tab="dictation" class="active">Dictation</button>
+      <button data-tab="models">Models</button>
+      <button data-tab="history">History</button>
+      <button data-tab="advanced">Advanced</button>
+    </nav>
+
+    <main>
+      <section id="tab-dictation">
+        <div id="dictation-fields"></div>
+        <p class="hint">
+          Compose a keybinding to <code>bolum toggle</code> on Hyprland or another Wayland
+          compositor; the shortcut above is used when the desktop grants one.
+        </p>
+        <h2>Last transcript</h2>
+        <p id="last-transcript" class="transcript hint">Nothing yet.</p>
+      </section>
+
+      <section id="tab-models" hidden>
+        <ul id="model-list"></ul>
+      </section>
+
+      <section id="tab-history" hidden>
+        <ul id="history-list"></ul>
+      </section>
+
+      <section id="tab-advanced" hidden>
+        <h2>Post-processing</h2>
+        <p class="hint">
+          Runs the transcript through an OpenAI-compatible chat endpoint before it is typed.
+        </p>
+        <div id="post-process-fields"></div>
+      </section>
     </main>
+
+    <div id="toasts"></div>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

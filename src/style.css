@@ -1,23 +1,166 @@
 :root {
+  --bg: #14161a;
+  --panel: #1c1f24;
+  --border: #2c3138;
+  --text: #e6e9ee;
+  --muted: #98a1ad;
+  --accent: #6ea8fe;
+  --recording: #ff6b6b;
   color-scheme: dark;
-  font-family: "Inter", "Cantarell", system-ui, sans-serif;
 }
+
+* { box-sizing: border-box; }
 
 body {
   margin: 0;
-  min-height: 100vh;
-  padding: 2rem;
-  background: #14121a;
-  color: #ece7f3;
+  font: 14px/1.5 system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--text);
 }
 
-h1 {
-  font-size: 1.4rem;
-  font-weight: 600;
+h1 { font-size: 18px; margin: 0; font-weight: 600; letter-spacing: 0.3px; }
+h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.6px; color: var(--muted); margin: 18px 0 6px; }
+
+header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 20px 8px;
+}
+header #dictate { margin-left: auto; }
+
+button {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 6px;
+  padding: 6px 12px;
+  cursor: pointer;
+  font: inherit;
+}
+button:hover { border-color: var(--accent); }
+
+.pill {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  color: var(--muted);
+}
+.pill.listening { color: var(--recording); border-color: #ff6b6b55; }
+.pill.working { color: var(--accent); border-color: #6ea8fe55; }
+
+#meter { width: 90px; height: 4px; background: #2c3138; border-radius: 2px; overflow: hidden; }
+#meter i { display: block; height: 100%; width: 0; background: var(--accent); }
+
+nav {
+  display: flex;
+  gap: 6px;
+  padding: 8px 20px;
+  border-bottom: 1px solid var(--border);
+}
+nav button { background: none; border: none; color: var(--muted); }
+nav button.active { color: var(--text); background: var(--panel); }
+
+main { padding: 12px 20px 24px; }
+
+.row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 6px 0;
 }
 
-.hint {
-  color: #9d95b0;
-  font-size: 0.85rem;
-  line-height: 1.5;
+input[type="text"], input[type="password"], input[type="number"], select, textarea {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 6px;
+  padding: 6px 10px;
+  min-width: 230px;
+  max-width: 320px;
+  font: inherit;
 }
+
+input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--accent); }
+
+.hint { color: var(--muted); font-size: 12px; }
+code {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 1px 5px;
+}
+.transcript {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin: 0;
+}
+
+ul { list-style: none; margin: 0; padding: 0; }
+li {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-bottom: 8px;
+}
+li.selected { border-color: var(--accent); }
+
+.bar { height: 3px; background: #2c3138; border-radius: 2px; margin-top: 8px; overflow: hidden; }
+.bar i { display: block; height: 100%; width: 0; background: var(--accent); }
+
+#toasts {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 360px;
+}
+.toast {
+  background: #23272e;
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-size: 12px;
+}
+
+/* Overlay window */
+body.overlay {
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  margin: 0;
+  overflow: hidden;
+}
+
+#overlay-pill {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: #14161ae6;
+  border: 1px solid var(--border);
+  font-size: 12px;
+  letter-spacing: 0.3px;
+}
+
+#overlay-level {
+  width: 60px;
+  height: 4px;
+  border-radius: 2px;
+  background: #2c3138;
+  overflow: hidden;
+}
+#overlay-level i { display: block; height: 100%; width: 0; background: var(--accent); }
