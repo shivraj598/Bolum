@@ -1,22 +1,23 @@
 //! Bolum: push-to-talk dictation with local Whisper and NVIDIA ONNX engines.
 
+mod commands;
+mod settings;
+mod state;
+
 use tauri::Manager;
 
-fn first_run() -> bool {
-    let config = std::env::var("XDG_CONFIG_HOME")
-        .map(std::path::PathBuf::from)
-        .unwrap_or_else(|_| {
-            std::path::PathBuf::from(std::env::var("HOME").unwrap_or_else(|_| "/tmp".into()))
-                .join(".config")
-        });
-    !config.join("bolum").join("settings.json").exists()
-}
+use crate::state::AppState;
 
 pub fn run() {
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
-    let first_run = first_run();
+    let first_run = !settings::settings_path().exists();
 
     tauri::Builder::default()
+        .invoke_handler(tauri::generate_handler![
+            commands::get_settings,
+            commands::set_setting,
+            commands::get_status,
+        ])
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
                 if window.label() == "main" {
@@ -26,7 +27,15 @@ pub fn run() {
             }
         })
         .setup(move |app| {
-            if first_run {
+            app.manage(AppState::new());
+            let start_hidden = app
+                .state::<AppState>()
+                .settings
+                .0
+                .lock()
+                .unwrap()
+                .bool("start_hidden");
+            if first_run || !start_hidden {
                 if let Some(window) = app.get_webview_window("main") {
                     let _ = window.show();
                     let _ = window.set_focus();
