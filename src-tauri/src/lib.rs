@@ -1,13 +1,15 @@
 //! Bolum: push-to-talk dictation with local Whisper and NVIDIA ONNX engines.
 
 pub mod audio;
-mod commands;
 pub mod engines;
-mod inject;
+pub mod history;
 pub mod ipc;
 pub mod models;
-mod pipeline;
 pub mod settings;
+
+mod commands;
+mod inject;
+mod pipeline;
 mod state;
 
 use std::sync::Arc;
@@ -175,6 +177,9 @@ pub fn run() {
             commands::start_recording,
             commands::stop_recording,
             commands::cancel_recording,
+            commands::list_history,
+            commands::delete_history,
+            commands::copy_history,
             commands::copy_last,
             commands::show_window,
             commands::recording_elapsed_ms,

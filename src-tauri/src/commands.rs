@@ -4,6 +4,7 @@ use serde_json::Value;
 use std::sync::atomic::Ordering;
 use tauri::{AppHandle, Manager, State};
 
+use crate::history;
 use crate::models::{self, ModelStatus};
 use crate::state::AppState;
 use crate::{inject, pipeline};
@@ -71,7 +72,8 @@ pub fn cancel_download(state: State<AppState>, id: String) {
 #[tauri::command]
 pub fn delete_model(state: State<AppState>, id: String) -> Result<(), String> {
     let model = models::find(&id).map_err(message)?;
-    if state.settings.0.lock().unwrap().str("model") == id {
+    let selected = state.settings.0.lock().unwrap().str("model");
+    if selected == id {
         *state.loaded.lock().unwrap() = None;
     }
     // Stop a running download before its directory disappears underneath it.
@@ -92,6 +94,27 @@ pub fn stop_recording(app: AppHandle) -> Result<String, String> {
 #[tauri::command]
 pub fn cancel_recording(app: AppHandle) -> Result<String, String> {
     pipeline::cancel(&app).map_err(message)
+}
+
+#[tauri::command]
+pub fn list_history(state: State<AppState>) -> Vec<history::Entry> {
+    let limit = state.settings.0.lock().unwrap().usize("history_limit");
+    history::list(limit)
+}
+
+#[tauri::command]
+pub fn delete_history(_state: State<AppState>, id: u64) -> Result<(), String> {
+    history::delete(id).map_err(message)
+}
+
+#[tauri::command]
+pub fn copy_history(_state: State<AppState>, id: u64) -> Result<(), String> {
+    let entry = history::list(usize::MAX)
+        .into_iter()
+        .find(|entry| entry.id == id)
+        .ok_or_else(|| "history entry not found".to_string())?;
+    let text = entry.post_processed.unwrap_or(entry.text);
+    inject::copy_to_clipboard(&text).map_err(message)
 }
 
 #[tauri::command]
