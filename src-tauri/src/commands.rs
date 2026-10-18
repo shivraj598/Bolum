@@ -27,6 +27,11 @@ pub fn get_status() -> String {
 }
 
 #[tauri::command]
+pub fn get_microphones() -> Vec<String> {
+    crate::audio::input_devices()
+}
+
+#[tauri::command]
 pub fn list_models(state: State<AppState>) -> Vec<ModelStatus> {
     state.downloads.status()
 }

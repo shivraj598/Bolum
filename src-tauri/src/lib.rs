@@ -1,11 +1,13 @@
 //! Bolum: push-to-talk dictation with local Whisper and NVIDIA ONNX engines.
 
+mod audio;
 mod commands;
 mod models;
 mod settings;
 mod state;
 
-use tauri::Manager;
+use std::sync::Arc;
+use tauri::{Emitter, Manager};
 
 use crate::state::AppState;
 
@@ -18,6 +20,7 @@ pub fn run() {
             commands::get_settings,
             commands::set_setting,
             commands::get_status,
+            commands::get_microphones,
             commands::list_models,
             commands::download_model,
             commands::cancel_download,
@@ -32,7 +35,13 @@ pub fn run() {
             }
         })
         .setup(move |app| {
-            app.manage(AppState::new());
+            let handle = app.handle().clone();
+            let level_handle = handle.clone();
+            let recorder = audio::AudioRecorder::new(Arc::new(move |level: f32| {
+                let _ = level_handle.emit("level", level);
+            }));
+            app.manage(AppState::new(recorder));
+
             let start_hidden = app
                 .state::<AppState>()
                 .settings
