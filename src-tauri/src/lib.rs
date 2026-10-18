@@ -10,6 +10,7 @@ pub mod settings;
 mod commands;
 mod inject;
 mod pipeline;
+mod postprocess;
 mod state;
 
 use std::sync::Arc;

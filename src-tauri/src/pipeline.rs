@@ -1,11 +1,11 @@
-//! Dictation pipeline: capture -> transcribe -> inject -> history.
+//! Dictation pipeline: capture -> transcribe -> (post-process) -> inject -> history.
 
 use anyhow::{anyhow, Result};
 use tauri::{AppHandle, Emitter, Manager};
 
 use crate::engines::Loaded;
 use crate::state::{now_ms, AppState};
-use crate::{history, inject, models};
+use crate::{history, inject, models, postprocess};
 
 /// Starts listening, unless already active.
 pub fn start(app: &AppHandle) -> Result<String> {
@@ -80,7 +80,7 @@ pub fn toggle(app: &AppHandle) -> Result<String> {
     }
 }
 
-/// Transcription, text injection and history in one task.
+/// Transcription, optional LLM cleanup, text injection and history in one task.
 fn deliver(app: AppHandle, samples: Vec<f32>, duration_ms: u64) {
     tauri::async_runtime::spawn(async move {
         let transcript = tauri::async_runtime::spawn_blocking({
@@ -128,10 +128,30 @@ fn deliver(app: AppHandle, samples: Vec<f32>, duration_ms: u64) {
             return;
         }
 
+        // Optional LLM post-processing.
+        let mut final_text = text.clone();
+        let post_process = {
+            let state = app.state::<AppState>();
+            let settings = state.settings.0.lock().unwrap();
+            settings.sub("post_process")
+        };
+        let enabled = post_process
+            .get("enabled")
+            .and_then(serde_json::Value::as_bool)
+            .unwrap_or(false);
+        if enabled {
+            match postprocess::enhance(&text, &post_process).await {
+                Ok(cleaned) => final_text = cleaned,
+                Err(err) => {
+                    let _ = app.emit("notice", format!("Post-processing skipped: {err}"));
+                }
+            }
+        }
+
         // Inject into the focused window and record history.
         let inject_result = tauri::async_runtime::spawn_blocking({
             let app = app.clone();
-            let text = text.clone();
+            let text = final_text.clone();
             move || -> Result<()> {
                 let state = app.state::<AppState>();
                 let settings = state.settings.0.lock().unwrap().clone();
@@ -154,7 +174,7 @@ fn deliver(app: AppHandle, samples: Vec<f32>, duration_ms: u64) {
             id: now_ms(),
             timestamp_ms: now_ms(),
             text: text.clone(),
-            post_processed: None,
+            post_processed: (final_text != text).then(|| final_text.clone()),
             model: model_id,
             duration_ms,
         };
@@ -163,9 +183,9 @@ fn deliver(app: AppHandle, samples: Vec<f32>, duration_ms: u64) {
         }
         let limit = app.state::<AppState>().settings.0.lock().unwrap().usize("history_limit");
         let _ = history::trim(limit);
-        *app.state::<AppState>().last_transcript.lock().unwrap() = Some(text.clone());
+        *app.state::<AppState>().last_transcript.lock().unwrap() = Some(final_text.clone());
 
-        let _ = app.emit("transcript", text);
+        let _ = app.emit("transcript", final_text);
         finish(&app);
     });
 }
