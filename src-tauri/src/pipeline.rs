@@ -27,7 +27,6 @@ pub fn start(app: &AppHandle) -> Result<String> {
     state.recorder.start(microphone)?;
     state.started_at_ms.store(now_ms(), std::sync::atomic::Ordering::Relaxed);
     state.set_phase("listening");
-    crate::update_tray(app, "listening");
     if state.settings.0.lock().unwrap().bool("show_overlay") {
         show_overlay(app, true);
     }
@@ -42,16 +41,8 @@ pub fn stop(app: &AppHandle) -> Result<String> {
         return Ok(format!("not listening (currently {})", state.phase()));
     }
     state.set_phase("working");
-    crate::update_tray(app, "working");
     let _ = app.emit("phase", "working");
-    let samples = match state.recorder.stop() {
-        Ok(samples) => samples,
-        Err(err) => {
-            // Never leave the app wedged in "working" when the mic misbehaves.
-            finish(app);
-            return Err(err);
-        }
-    };
+    let samples = state.recorder.stop()?;
     let duration_ms = now_ms().saturating_sub(state.started_at_ms.load(std::sync::atomic::Ordering::Relaxed));
 
     if samples.len() < crate::audio::TARGET_RATE as usize / 10 {
@@ -89,21 +80,14 @@ fn deliver(app: AppHandle, samples: Vec<f32>, _duration_ms: u64) {
                 let state = app.state::<AppState>();
                 let model_id = state.settings.0.lock().unwrap().str("model");
                 let model = models::find(&model_id)?;
-                let stale = {
-                    let loaded = state.loaded.lock().unwrap();
-                    loaded.as_ref().map(|(id, _)| id != &model_id).unwrap_or(true)
-                };
+                let mut loaded = state.loaded.lock().unwrap();
+                let stale = loaded.as_ref().map(|(id, _)| id != &model_id).unwrap_or(true);
                 if stale {
                     log::info!("loading model {model_id}");
-                    // Load outside the lock: engines read hundreds of megabytes
-                    // and the UI keeps using the state meanwhile.
-                    let engine = Loaded::load(model)?;
-                    *state.loaded.lock().unwrap() = Some((model_id.clone(), engine));
+                    *loaded = Some((model_id.clone(), Loaded::load(model)?));
                 }
-                // Clone the settings so no guard is held during transcription.
-                let settings = state.settings.0.lock().unwrap().clone();
-                let mut loaded = state.loaded.lock().unwrap();
                 let (_, engine) = loaded.as_mut().unwrap();
+                let settings = state.settings.0.lock().unwrap();
                 engine.transcribe(&samples, &settings)
             }
         })
@@ -134,7 +118,7 @@ fn deliver(app: AppHandle, samples: Vec<f32>, _duration_ms: u64) {
             let text = text.clone();
             move || -> Result<()> {
                 let state = app.state::<AppState>();
-                let settings = state.settings.0.lock().unwrap().clone();
+                let settings = state.settings.0.lock().unwrap();
                 inject::inject(&text, &settings)
             }
         })

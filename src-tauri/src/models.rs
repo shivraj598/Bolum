@@ -22,6 +22,8 @@ use crate::settings::models_dir;
 #[serde(rename_all = "lowercase")]
 pub enum Engine {
     Whisper,
+    Parakeet,
+    Canary,
 }
 
 pub struct FileSpec {
@@ -39,6 +41,13 @@ pub struct CatalogModel {
     pub languages: &'static str,
     pub files: &'static [FileSpec],
 }
+
+const NEMO_PRE: FileSpec = FileSpec {
+    name: "nemo128.onnx",
+    url: "https://huggingface.co/istupakov/parakeet-tdt-0.6b-v3-onnx/resolve/main/nemo128.onnx",
+    sha256: "a9fde1486ebfcc08f328d75ad4610c67835fea58c73ba57e3209a6f6cf019e9f",
+    size: 139_764,
+};
 
 pub const CATALOG: &[CatalogModel] = &[
     CatalogModel {
@@ -79,6 +88,62 @@ pub const CATALOG: &[CatalogModel] = &[
             sha256: "394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2",
             size: 574_041_195,
         }],
+    },
+    CatalogModel {
+        id: "parakeet-tdt-0.6b-v3",
+        name: "NVIDIA Parakeet TDT 0.6B v3",
+        engine: Engine::Parakeet,
+        description: "Fast English-first transducer with 25 European languages. ONNX int8.",
+        languages: "25 languages",
+        files: &[
+            FileSpec {
+                name: "encoder-model.int8.onnx",
+                url: "https://huggingface.co/istupakov/parakeet-tdt-0.6b-v3-onnx/resolve/main/encoder-model.int8.onnx",
+                sha256: "6139d2fa7e1b086097b277c7149725edbab89cc7c7ae64b23c741be4055aff09",
+                size: 652_183_999,
+            },
+            FileSpec {
+                name: "decoder_joint-model.int8.onnx",
+                url: "https://huggingface.co/istupakov/parakeet-tdt-0.6b-v3-onnx/resolve/main/decoder_joint-model.int8.onnx",
+                sha256: "eea7483ee3d1a30375daedc8ed83e3960c91b098812127a0d99d1c8977667a70",
+                size: 18_202_004,
+            },
+            NEMO_PRE,
+            FileSpec {
+                name: "vocab.txt",
+                url: "https://huggingface.co/istupakov/parakeet-tdt-0.6b-v3-onnx/resolve/main/vocab.txt",
+                sha256: "d58544679ea4bc6ac563d1f545eb7d474bd6cfa467f0a6e2c1dc1c7d37e3c35d",
+                size: 93_939,
+            },
+        ],
+    },
+    CatalogModel {
+        id: "canary-180m-flash",
+        name: "NVIDIA Canary 180M Flash",
+        engine: Engine::Canary,
+        description: "Tiny encoder-decoder with English, German, Spanish and French, plus translation between them. ONNX int8.",
+        languages: "en, de, es, fr",
+        files: &[
+            FileSpec {
+                name: "encoder-model.int8.onnx",
+                url: "https://huggingface.co/istupakov/canary-180m-flash-onnx/resolve/main/encoder-model.int8.onnx",
+                sha256: "996d1c89e6cbc891a7c88bf410884c178ffa474f7b13084522ac74a5e144cc81",
+                size: 133_710_896,
+            },
+            FileSpec {
+                name: "decoder-model.int8.onnx",
+                url: "https://huggingface.co/istupakov/canary-180m-flash-onnx/resolve/main/decoder-model.int8.onnx",
+                sha256: "9dd9c447872088c912e916d73751f9621a54085d5bc46788454fe904db51a914",
+                size: 79_520_211,
+            },
+            NEMO_PRE,
+            FileSpec {
+                name: "vocab.txt",
+                url: "https://huggingface.co/istupakov/canary-180m-flash-onnx/resolve/main/vocab.txt",
+                sha256: "2dae6fc7815f9640645e0c765522b278ee0cef49b482d91f6913e334628d3e77",
+                size: 53_555,
+            },
+        ],
     },
 ];
 
