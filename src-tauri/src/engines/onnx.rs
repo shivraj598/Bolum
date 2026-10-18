@@ -93,7 +93,25 @@ fn tokens_to_text(tokens: &[String], ids: &[i64]) -> String {
         .filter(|token| !token.starts_with("<|"))
         .cloned()
         .collect();
-    text.split_whitespace().collect::<Vec<_>>().join(" ")
+    // Space runs collapse to a single space before a word and vanish
+    // otherwise, so "Hello , world ." reads as "Hello, world." — the cleanup
+    // the reference decoder does with `\A\s|\s\B|(\s)\b`.
+    let mut out = String::with_capacity(text.len());
+    let mut pending_space = false;
+    for c in text.chars() {
+        if c.is_whitespace() {
+            pending_space = true;
+            continue;
+        }
+        if pending_space {
+            pending_space = false;
+            if !out.is_empty() && (c.is_alphanumeric() || c == '_') {
+                out.push(' ');
+            }
+        }
+        out.push(c);
+    }
+    out
 }
 
 /// Runs `nemo128.onnx` and returns the log-mel features and their shape.
