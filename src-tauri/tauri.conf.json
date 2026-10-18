@@ -1,0 +1,37 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Bolum",
+  "version": "0.1.0",
+  "identifier": "computer.bolum.app",
+  "build": {
+    "frontendDist": "../dist",
+    "devUrl": "http://localhost:1420",
+    "beforeDevCommand": "npm run dev",
+    "beforeBuildCommand": "npm run build"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "Bolum",
+        "width": 720,
+        "height": 580,
+        "minWidth": 560,
+        "minHeight": 420,
+        "visible": false,
+        "center": true
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["appimage", "deb"],
+    "category": "Utility",
+    "icon": ["icons/32x32.png", "icons/128x128.png", "icons/icon.png"],
+    "shortDescription": "Push-to-talk dictation",
+    "longDescription": "Bolum turns speech into text in any application. Press a shortcut, speak, and the transcript is typed into the focused window. Transcription runs locally with Whisper or NVIDIA Parakeet/Canary ONNX engines."
+  }
+}

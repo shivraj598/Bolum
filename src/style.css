@@ -1,0 +1,23 @@
+:root {
+  color-scheme: dark;
+  font-family: "Inter", "Cantarell", system-ui, sans-serif;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  padding: 2rem;
+  background: #14121a;
+  color: #ece7f3;
+}
+
+h1 {
+  font-size: 1.4rem;
+  font-weight: 600;
+}
+
+.hint {
+  color: #9d95b0;
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
