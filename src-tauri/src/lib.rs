@@ -1,6 +1,7 @@
 //! Bolum: push-to-talk dictation with local Whisper and NVIDIA ONNX engines.
 
 mod commands;
+mod models;
 mod settings;
 mod state;
 
@@ -17,6 +18,10 @@ pub fn run() {
             commands::get_settings,
             commands::set_setting,
             commands::get_status,
+            commands::list_models,
+            commands::download_model,
+            commands::cancel_download,
+            commands::delete_model,
         ])
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
