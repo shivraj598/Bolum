@@ -55,6 +55,18 @@ $("#content").addEventListener(
 /* ------------------------------------------------ status, level, notices */
 
 const levelBar = $("#level-bar");
+let pendingLevel: number | null = null;
+
+/** Level events arrive faster than the screen refreshes; draw once per frame. */
+function showLevel(level: number) {
+  if (pendingLevel === null) {
+    requestAnimationFrame(() => {
+      levelBar.style.width = `${levelPercent(pendingLevel ?? 0)}%`;
+      pendingLevel = null;
+    });
+  }
+  pendingLevel = level;
+}
 
 function setPhase(phase: Phase) {
   $("#status-dot").className = `status-dot ${phase}`;
@@ -64,7 +76,7 @@ function setPhase(phase: Phase) {
   dictate.textContent = phase === "listening" ? "Stop" : "Dictate";
   dictate.classList.toggle("recording", phase === "listening");
   dictate.disabled = phase === "working";
-  if (phase === "idle") levelBar.style.width = "0%";
+  if (phase === "idle") showLevel(0);
 }
 
 function notice(text: string) {
@@ -79,9 +91,7 @@ void listen<Phase>("phase", (event) => {
   setPhase(event.payload);
   if (event.payload === "idle") void loadHistory();
 });
-void listen<number>("level", (event) => {
-  levelBar.style.width = `${levelPercent(event.payload)}%`;
-});
+void listen<number>("level", (event) => showLevel(event.payload));
 void listen<string>("notice", (event) => notice(event.payload));
 void listen<string>("transcript", (event) => {
   const last = $("#last-transcript");
