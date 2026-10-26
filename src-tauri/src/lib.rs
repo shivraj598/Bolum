@@ -245,3 +245,21 @@ pub fn run() {
         .run(tauri::generate_context!())
         .expect("error while running Bolum");
 }
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn tray_icons_decode_at_menu_bar_size() {
+        let icons: [(&str, &[u8]); 4] = [
+            ("idle-template", include_bytes!("../../branding/tray/idle-template.png")),
+            ("idle", include_bytes!("../../branding/tray/idle.png")),
+            ("recording", include_bytes!("../../branding/tray/recording.png")),
+            ("transcribing", include_bytes!("../../branding/tray/transcribing.png")),
+        ];
+        for (name, bytes) in icons {
+            let image = tauri::image::Image::from_bytes(bytes)
+                .unwrap_or_else(|err| panic!("branding/tray/{name}.png does not decode: {err}"));
+            assert_eq!((image.width(), image.height()), (44, 44), "branding/tray/{name}.png");
+        }
+    }
+}
