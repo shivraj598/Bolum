@@ -4,40 +4,42 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Bolum</title>
+    <script>
+      // Before first paint: macOS gets the translucent sidebar and title-bar inset.
+      if (navigator.userAgent.includes("Mac")) document.documentElement.classList.add("mac");
+    </script>
     <link rel="stylesheet" href="/src/style.css" />
   </head>
   <body>
     <div class="app">
       <aside class="sidebar">
-        <div class="brand">
-          <svg class="logo" viewBox="0 0 32 32" aria-hidden="true">
-            <rect width="32" height="32" rx="9" />
-            <path d="M9 13v6M13 10v12M17 7v18M21 11v10M25 14v4" />
-          </svg>
-          <span>Bolum</span>
+        <div class="titlebar-inset" data-tauri-drag-region></div>
+        <div class="brand" data-tauri-drag-region>
+          <img class="logo" src="/branding/logo.svg" alt="" draggable="false" />
+          <span>bolum</span>
         </div>
         <nav id="nav">
-          <button data-page="general" class="active">
-            <svg viewBox="0 0 24 24"><rect x="9" y="2" width="6" height="12" rx="3" /><path d="M5 10a7 7 0 0 0 14 0M12 17v5" /></svg>
+          <button data-page="general" class="active" title="General">
+            <svg viewBox="0 0 24 24"><rect x="9" y="2.5" width="6" height="11.5" rx="3" /><path d="M5.5 10.5a6.5 6.5 0 0 0 13 0M12 17v4.5" /></svg>
             <span>General</span>
           </button>
-          <button data-page="models">
-            <svg viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="2" /><rect x="9" y="9" width="6" height="6" rx="1" /><path d="M9 2v3M15 2v3M9 19v3M15 19v3M2 9h3M2 15h3M19 9h3M19 15h3" /></svg>
+          <button data-page="models" title="Models">
+            <svg viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="2.5" /><rect x="9" y="9" width="6" height="6" rx="1" /><path d="M9 2v3M15 2v3M9 19v3M15 19v3M2 9h3M2 15h3M19 9h3M19 15h3" /></svg>
             <span>Models</span>
           </button>
-          <button data-page="history">
+          <button data-page="history" title="History">
             <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg>
             <span>History</span>
           </button>
-          <button data-page="advanced">
-            <svg viewBox="0 0 24 24"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0" /><circle cx="16" cy="6" r="2" /><circle cx="10" cy="12" r="2" /><circle cx="18" cy="18" r="2" /></svg>
+          <button data-page="advanced" title="Advanced">
+            <svg viewBox="0 0 24 24"><path d="M4 6h9M17 6h3M4 12h3M11 12h9M4 18h11M19 18h1" /><circle cx="15" cy="6" r="2" /><circle cx="9" cy="12" r="2" /><circle cx="17" cy="18" r="2" /></svg>
             <span>Advanced</span>
           </button>
-          <button data-page="post-processing">
-            <svg viewBox="0 0 24 24"><path d="M11 3l1.8 4.9L17.7 9.7l-4.9 1.8L11 16.4 9.2 11.5 4.3 9.7l4.9-1.8z" /><path d="M18 15l.8 2.2L21 18l-2.2.8L18 21l-.8-2.2L15 18l2.2-.8z" /></svg>
+          <button data-page="post-processing" title="Post-processing">
+            <svg viewBox="0 0 24 24"><path d="M11 3l1.8 4.9 4.9 1.8-4.9 1.8L11 16.4l-1.8-4.9-4.9-1.8 4.9-1.8z" /><path d="M18 14.5l.8 2.2 2.2.8-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.8z" /></svg>
             <span>Post-processing</span>
           </button>
-          <button data-page="about">
+          <button data-page="about" title="About">
             <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" /><path d="M12 11v5M12 8h.01" /></svg>
             <span>About</span>
           </button>
@@ -45,12 +47,13 @@
       </aside>
 
       <div class="workspace">
+        <header class="toolbar" data-tauri-drag-region>
+          <h1 id="page-title" data-tauri-drag-region>General</h1>
+        </header>
+
         <main id="content">
           <section data-page="general">
-            <header class="page-head">
-              <h1>General</h1>
-              <p>Press the shortcut, speak, and the transcript is typed into the focused app.</p>
-            </header>
+            <p class="page-lead">Press the shortcut, speak, and the transcript is typed into the focused app.</p>
             <div id="general-groups"></div>
             <div class="group">
               <h2 class="group-title">Last transcript</h2>
@@ -59,13 +62,13 @@
           </section>
 
           <section data-page="models" hidden>
-            <header class="page-head">
-              <h1>Models</h1>
-              <p>Everything runs on this computer. Smaller models are faster; larger ones are more accurate.</p>
-            </header>
+            <p class="page-lead">Everything runs on this computer. Smaller models are faster; larger ones are more accurate.</p>
             <div id="welcome" class="banner" hidden>
-              <strong>Welcome to Bolum.</strong>
-              Download a model to start dictating. Whisper Base (English) is a quick 60 MB download.
+              <img src="/branding/logo.svg" alt="" draggable="false" />
+              <div>
+                <strong>Welcome to Bolum</strong>
+                <span>Download a model to start dictating. Whisper Base (English) is a quick 60 MB download.</span>
+              </div>
             </div>
             <div class="group">
               <h2 class="group-title">Recommended</h2>
@@ -75,44 +78,33 @@
               <h2 class="group-title">More models</h2>
               <div id="models-more" class="model-list"></div>
             </div>
-            <p class="legend muted">Accuracy and speed are relative guides, not benchmarks.</p>
+            <p class="legend">Accuracy and speed are relative guides, not benchmarks.</p>
           </section>
 
           <section data-page="history" hidden>
-            <header class="page-head">
-              <h1>History</h1>
-              <p>Every dictation is kept on this computer.</p>
-            </header>
+            <p class="page-lead">Every dictation is kept on this computer.</p>
             <div id="history-list" class="history"></div>
           </section>
 
           <section data-page="advanced" hidden>
-            <header class="page-head">
-              <h1>Advanced</h1>
-              <p>Appearance, text delivery and translation.</p>
-            </header>
+            <p class="page-lead">Appearance, translation and text delivery details.</p>
             <div id="advanced-groups"></div>
           </section>
 
           <section data-page="post-processing" hidden>
-            <header class="page-head">
-              <h1>Post-processing</h1>
-              <p>Run the transcript through an OpenAI-compatible chat endpoint before it is typed.</p>
-            </header>
+            <p class="page-lead">Run the transcript through an OpenAI-compatible chat endpoint before it is typed.</p>
             <div id="post-process-groups"></div>
           </section>
 
           <section data-page="about" hidden>
-            <header class="page-head">
-              <h1>About</h1>
-              <p>Push-to-talk dictation with local Whisper and NVIDIA engines.</p>
-            </header>
+            <div class="about-hero">
+              <img src="/branding/logo.svg" alt="" draggable="false" />
+              <h2>bolum</h2>
+              <p class="muted">Version <span id="version">—</span></p>
+              <p>Push-to-talk dictation with local Whisper and NVIDIA engines. Nothing leaves this computer.</p>
+            </div>
             <div class="group">
               <div class="group-body">
-                <div class="setting">
-                  <div class="setting-text"><span class="setting-label">Version</span></div>
-                  <span id="version" class="muted">—</span>
-                </div>
                 <div class="setting">
                   <div class="setting-text">
                     <span class="setting-label">Command line</span>
@@ -138,13 +130,13 @@
 
         <footer class="footer">
           <button id="footer-model" class="footer-model" title="Choose a model">
-            <svg viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="2" /><rect x="9" y="9" width="6" height="6" rx="1" /></svg>
+            <svg viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="2.5" /><rect x="9" y="9" width="6" height="6" rx="1" /></svg>
             <span id="footer-model-name">No model</span>
           </button>
           <div class="footer-status">
             <span id="status-dot" class="status-dot idle"></span>
             <span id="status-label">Ready</span>
-            <div id="meter" class="meter"><i id="level-bar"></i></div>
+            <div class="meter"><i id="level-bar"></i></div>
           </div>
           <button id="dictate" class="button primary">Dictate</button>
         </footer>
