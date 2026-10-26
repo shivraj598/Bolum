@@ -1,5 +1,6 @@
 import { getVersion } from "@tauri-apps/api/app";
 import { listen } from "@tauri-apps/api/event";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import {
   api,
   levelPercent,
@@ -105,7 +106,7 @@ type Option = { value: string; label: string };
 type Field = {
   key: string;
   label: string;
-  type: "text" | "password" | "switch" | "select" | "number" | "textarea" | "shortcut";
+  type: "text" | "password" | "switch" | "select" | "segmented" | "number" | "textarea" | "shortcut";
   options?: () => Option[] | Promise<Option[]>;
   hint?: string;
 };
@@ -203,9 +204,9 @@ const ADVANCED_GROUPS: Group[] = [
     fields: [
       {
         key: "theme",
-        label: "Theme",
-        type: "select",
-        options: options(["system", "System"], ["light", "Light"], ["dark", "Dark"]),
+        label: "Appearance",
+        type: "segmented",
+        options: options(["system", "Auto"], ["light", "Light"], ["dark", "Dark"]),
       },
       { key: "show_overlay", label: "Show overlay while dictating", type: "switch" },
       { key: "start_hidden", label: "Start hidden in the menu bar", type: "switch" },
@@ -295,6 +296,29 @@ async function renderField(field: Field): Promise<HTMLElement> {
     input.onchange = () => void save(field.key, input.checked);
     control.append(input, document.createElement("span"));
     row.append(control);
+  } else if (field.type === "segmented") {
+    const control = document.createElement("div");
+    control.className = "segmented";
+    control.setAttribute("role", "radiogroup");
+    control.setAttribute("aria-label", field.label);
+    for (const choice of field.options ? await field.options() : []) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.textContent = choice.label;
+      button.setAttribute("role", "radio");
+      const select = (on: boolean) => {
+        button.classList.toggle("active", on);
+        button.setAttribute("aria-checked", String(on));
+      };
+      select(String(current) === choice.value);
+      button.onclick = () => {
+        for (const other of control.children) other.classList.remove("active");
+        select(true);
+        void save(field.key, choice.value);
+      };
+      control.append(button);
+    }
+    row.append(control);
   } else if (field.type === "select") {
     const select = document.createElement("select");
     select.setAttribute("aria-label", field.label);
@@ -345,10 +369,13 @@ async function save(key: string, value: unknown) {
   if (key === "model") renderModels();
 }
 
+/** Applies the theme to the page and to the native window, so the macOS sidebar material matches. */
 function applyTheme() {
   const theme = String(settingValue(settings, "theme") ?? "system");
-  if (theme === "light" || theme === "dark") document.documentElement.dataset.theme = theme;
+  const forced = theme === "light" || theme === "dark" ? theme : null;
+  if (forced) document.documentElement.dataset.theme = forced;
   else delete document.documentElement.dataset.theme;
+  void getCurrentWindow().setTheme(forced).catch(() => {});
 }
 
 /* -------------------------------------------------------------- shortcut */
