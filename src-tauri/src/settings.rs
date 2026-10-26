@@ -214,6 +214,12 @@ fn set_in(map: &mut Map<String, Value>, path: &[&str], value: Value) {
 
 pub struct Settings(pub Mutex<SettingsStore>);
 
+impl Default for Settings {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Settings {
     pub fn new() -> Self {
         Self(Mutex::new(SettingsStore::load()))
