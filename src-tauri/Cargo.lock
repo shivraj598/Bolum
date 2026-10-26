@@ -288,6 +288,7 @@ dependencies = [
  "env_logger",
  "futures-util",
  "hound",
+ "http",
  "log",
  "ort",
  "reqwest",

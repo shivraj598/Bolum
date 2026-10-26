@@ -494,3 +494,121 @@ pub fn delete(model: &CatalogModel) -> Result<()> {
         Err(err) => Err(err.into()),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::HashSet;
+
+    #[test]
+    fn catalog_ids_are_unique() {
+        let mut seen = HashSet::new();
+        for model in CATALOG {
+            assert!(seen.insert(model.id), "duplicate model id {}", model.id);
+        }
+    }
+
+    #[test]
+    fn every_file_is_pinned_to_a_hugging_face_url() {
+        for model in CATALOG {
+            assert!(!model.files.is_empty(), "{} has no files", model.id);
+            for file in model.files {
+                assert!(
+                    file.sha256.len() == 64
+                        && file.sha256.chars().all(|c| c.is_ascii_hexdigit() && !c.is_ascii_uppercase()),
+                    "{}/{}: sha256 must be 64 lowercase hex digits",
+                    model.id,
+                    file.name
+                );
+                assert!(file.size > 0, "{}/{} has no size", model.id, file.name);
+                assert!(
+                    file.url.starts_with("https://huggingface.co/") && file.url.contains("/resolve/"),
+                    "{}/{}: unexpected url {}",
+                    model.id,
+                    file.name,
+                    file.url
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn each_engine_gets_the_files_it_loads() {
+        for model in CATALOG {
+            let names: Vec<&str> = model.files.iter().map(|f| f.name).collect();
+            let expected: &[&str] = match model.engine {
+                Engine::Whisper => &["model.bin"],
+                Engine::Parakeet => &["encoder-model.int8.onnx", "decoder_joint-model.int8.onnx", "nemo128.onnx", "vocab.txt"],
+                Engine::Canary => &["encoder-model.int8.onnx", "decoder-model.int8.onnx", "nemo128.onnx", "vocab.txt"],
+            };
+            assert_eq!(names, expected, "{} ships the wrong files", model.id);
+        }
+    }
+
+    #[test]
+    fn scores_are_fractions() {
+        for model in CATALOG {
+            for (label, score) in [("accuracy", model.accuracy), ("speed", model.speed)] {
+                assert!(score > 0.0 && score <= 1.0, "{} {label} {score} is outside (0, 1]", model.id);
+            }
+        }
+    }
+
+    #[test]
+    fn recommended_models_come_first() {
+        let first_other = CATALOG.iter().position(|m| !m.recommended).unwrap_or(CATALOG.len());
+        assert!(first_other > 0, "no model is recommended");
+        assert!(
+            CATALOG[first_other..].iter().all(|m| !m.recommended),
+            "recommended models must lead the catalog"
+        );
+    }
+
+    #[test]
+    fn the_default_model_is_a_recommended_catalog_entry() {
+        let default = crate::settings::defaults()["model"].as_str().expect("a default model");
+        let model = find(default).expect("default model is in the catalog");
+        assert!(model.recommended, "the default model should be recommended");
+    }
+
+    #[test]
+    fn find_rejects_unknown_ids() {
+        assert!(find("whisper-enormous").is_err());
+    }
+
+    #[test]
+    fn total_size_adds_every_file() {
+        let model = find("parakeet-tdt-0.6b-v2").unwrap();
+        assert_eq!(total_size(model), 652_184_014 + 8_998_286 + 139_764 + 9_384);
+    }
+
+    #[test]
+    fn sha256_file_matches_a_known_digest() {
+        let path = std::env::temp_dir().join(format!("bolum-sha-{}.txt", std::process::id()));
+        std::fs::write(&path, b"abc").unwrap();
+        let digest = sha256_file(&path);
+        let _ = std::fs::remove_file(&path);
+        assert_eq!(
+            digest.unwrap(),
+            "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+        );
+    }
+
+    fn response(status: u16, content_range: Option<&str>) -> reqwest::Response {
+        let mut builder = http::Response::builder().status(status);
+        if let Some(range) = content_range {
+            builder = builder.header("content-range", range);
+        }
+        reqwest::Response::from(builder.body(Vec::<u8>::new()).unwrap())
+    }
+
+    #[test]
+    fn resumes_only_when_the_server_continues_the_part_file() {
+        assert!(resumes_at(&response(206, Some("bytes 100-199/200")), 100));
+        // A different offset would splice the wrong bytes onto the part file.
+        assert!(!resumes_at(&response(206, Some("bytes 0-199/200")), 100));
+        // A server that ignores Range answers 200 with the whole body.
+        assert!(!resumes_at(&response(200, None), 100));
+        assert!(!resumes_at(&response(206, None), 100));
+    }
+}
