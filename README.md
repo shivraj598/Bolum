@@ -2,7 +2,7 @@
 
 <p align="center"><img src="branding/logo-full.svg" alt="bolum" width="220" /></p>
 
-Push-to-talk dictation for macOS and Linux desktops. Press a shortcut (or run `bolum toggle`
+Push-to-talk dictation for macOS, Windows and Linux desktops. Press a shortcut (or run `bolum toggle`
 from a compositor keybinding), speak, and the transcript is typed into whatever window has
 focus.
 Everything runs locally: Whisper through whisper.cpp, or NVIDIA Parakeet/Canary through
@@ -36,13 +36,21 @@ Download the latest installer from
 | Platform | File |
 | --- | --- |
 | macOS 13.4+ (Apple Silicon) | `Bolum_<version>_aarch64.dmg` |
-| Linux x86_64, any distribution | `Bolum_<version>_amd64.AppImage` |
-| Debian / Ubuntu | `Bolum_<version>_amd64.deb` |
+| Windows 10/11 (x64) | `Bolum_<version>_x64-setup.exe` |
+| Linux x86_64 with glibc 2.39+ | `Bolum_<version>_amd64.AppImage` |
+| Debian 13 / Ubuntu 24.04+ | `Bolum_<version>_amd64.deb` |
+
+Every push to `main` that passes the tests replaces these files with a fresh build, and
+each version tag keeps its own release.
 
 **macOS:** open the `.dmg` and drag Bolum to Applications. The app is not signed with an
 Apple Developer ID yet, so the first launch is blocked. Open **System Settings → Privacy &
 Security** and click **Open Anyway**, or run
 `xattr -dr com.apple.quarantine /Applications/Bolum.app`.
+
+**Windows:** run the setup `.exe`. It isn't code-signed yet, so SmartScreen may warn; choose
+**More info → Run anyway**. The installer fetches the WebView2 runtime if it is missing.
+Bolum lives in the notification area.
 
 **Linux:** `chmod +x Bolum_*.AppImage && ./Bolum_*.AppImage`, or
 `sudo apt install ./Bolum_*_amd64.deb`.
@@ -60,6 +68,14 @@ To build from source instead, see [Build and run](#build-and-run).
 On first launch macOS asks for **Microphone** and **Accessibility** access (System
 Settings → Privacy & Security → Accessibility); the latter lets Bolum insert text into
 other apps. Bolum lives in the menu bar and has no Dock icon.
+
+### Windows
+
+- Windows 10 or 11 (x64)
+- Rust (stable, MSVC toolchain), Node.js 20+, `cmake` and LLVM (for whisper.cpp's bindings),
+  plus the Visual Studio C++ build tools
+
+Text is typed or pasted with native key events, so no extra tools or permissions are needed.
 
 ### Linux
 
@@ -110,9 +126,12 @@ The smoke test needs the network and a 44 MB download, so `test:rust` skips it. 
 its files under `src-tauri/target/tmp/smoke` (or `BOLUM_SMOKE_DIR`) and never touches your
 real models or settings.
 
-[GitHub Actions](.github/workflows/ci.yml) runs the web and Rust suites on macOS and Linux
-for every push to `main`, every `v*` tag and every pull request. After pushes and tags it
-also runs the smoke test against the live model host.
+[GitHub Actions](.github/workflows/ci.yml) runs the web suite and the Rust suite on macOS,
+Linux and Windows for every push and pull request. Pushes also run the smoke test against
+the live model host. When a push to `main` passes all of it, the pipeline builds the macOS
+`.dmg`, the Windows `.exe` and the Linux AppImage and `.deb`, and publishes them as the
+**latest** release. A `v*` tag publishes the same files as a permanent release for that
+version.
 
 ## Usage
 
