@@ -16,13 +16,15 @@ const $ = <T extends HTMLElement>(selector: string) =>
 let settings: Settings = {};
 let models: ModelInfo[] = [];
 
-const IS_MAC = navigator.userAgent.includes("Mac");
+const IS_MAC = document.documentElement.classList.contains("mac");
 
 /* ------------------------------------------------------------ navigation */
 
 function showPage(page: string) {
   for (const button of document.querySelectorAll<HTMLButtonElement>("#nav button")) {
-    button.classList.toggle("active", button.dataset.page === page);
+    const active = button.dataset.page === page;
+    button.classList.toggle("active", active);
+    if (active) $("#page-title").textContent = button.title;
   }
   for (const section of document.querySelectorAll<HTMLElement>("#content > section")) {
     section.hidden = section.dataset.page !== page;
@@ -41,6 +43,13 @@ $("#nav").addEventListener("click", (event) => {
 });
 
 $("#footer-model").addEventListener("click", () => showPage("models"));
+
+// Like native toolbars, a hairline appears once content scrolls beneath it.
+$("#content").addEventListener(
+  "scroll",
+  () => $("#page-title").parentElement!.classList.toggle("scrolled", $("#content").scrollTop > 0),
+  { passive: true },
+);
 
 /* ------------------------------------------------ status, level, notices */
 
