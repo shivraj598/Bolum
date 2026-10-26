@@ -6,9 +6,13 @@
     <link rel="stylesheet" href="/src/style.css" />
   </head>
   <body class="overlay">
-    <div id="overlay-pill">
-      <span id="overlay-label">Listening</span>
-      <div id="overlay-level"><i></i></div>
+    <div id="overlay" class="ov">
+      <span class="ov-dot"></span>
+      <div class="ov-wave"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+      <div class="ov-work"><span class="ov-spinner"></span><span>Transcribing…</span></div>
+      <button id="overlay-cancel" class="ov-x" aria-label="Cancel" title="Cancel">
+        <svg viewBox="0 0 16 16"><path d="M4 4l8 8M12 4l-8 8" /></svg>
+      </button>
     </div>
     <script type="module" src="/src/overlay.ts"></script>
   </body>

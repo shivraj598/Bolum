@@ -408,8 +408,10 @@ function shortcutControl(key: string, current: string): HTMLElement {
       }
       const name = acceleratorKey(event.code);
       if (!name) return;
-      if (modifiers.length === 0 && !/^f\d+$/.test(name)) {
-        button.textContent = "Add a modifier key…";
+      // Shift alone would swallow ordinary capitals system-wide.
+      const chorded = modifiers.some((modifier) => modifier !== "shift");
+      if (!chorded && !/^f\d+$/.test(name)) {
+        button.textContent = IS_MAC ? "Include ⌃, ⌥ or ⌘…" : "Include Ctrl, Alt or Super…";
         return;
       }
       finish([...modifiers, name].join("+"));
@@ -677,7 +679,10 @@ async function boot() {
 
   let page = "general";
   try {
-    page = localStorage.getItem("page") ?? page;
+    const stored = localStorage.getItem("page");
+    if (stored && document.querySelector(`#content > section[data-page="${CSS.escape(stored)}"]`)) {
+      page = stored;
+    }
   } catch {
     // Fall back to the first page.
   }
