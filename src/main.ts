@@ -543,17 +543,18 @@ function sizeLabel(megabytes: number) {
   return megabytes >= 1000 ? `${(megabytes / 1000).toFixed(1)} GB` : `${megabytes} MB`;
 }
 
+/** A five-step meter, easier to compare at a glance than a continuous bar. */
 function score(label: string, value: number) {
-  return `<span class="score"><span>${label}</span><span class="score-bar"><i style="width:${Math.round(
-    value * 100,
-  )}%"></i></span></span>`;
+  const filled = Math.max(1, Math.round(value * 5));
+  const steps = Array.from({ length: 5 }, (_, index) => `<i${index < filled ? ' class="on"' : ""}></i>`).join("");
+  return `<span class="score" title="${label}: ${filled} of 5"><span>${label}</span><span class="steps">${steps}</span></span>`;
 }
 
 function modelCard(model: ModelInfo, selected: string) {
   const active = model.downloaded && model.id === selected;
   let actions: string;
   if (active) {
-    actions = `<span class="chip accent">Active</span>
+    actions = `<span class="badge-active"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg>Active</span>
       <button class="icon-button" data-action="delete" title="Delete model">${TRASH_ICON}</button>`;
   } else if (model.downloaded) {
     actions = `<button class="button" data-action="use">Use</button>
