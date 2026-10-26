@@ -23,15 +23,26 @@ use tauri_plugin_global_shortcut::{GlobalShortcutExt, ShortcutState};
 
 use crate::state::AppState;
 
+/// The resting menu-bar icon. macOS gets a template image, which the system
+/// tints to suit light and dark menu bars; other desktops get a neutral grey.
+fn idle_tray_icon() -> (&'static [u8], bool) {
+    if cfg!(target_os = "macos") {
+        (include_bytes!("../../branding/tray/idle-template.png"), true)
+    } else {
+        (include_bytes!("../../branding/tray/idle.png"), false)
+    }
+}
+
 /// Swaps the tray icon between idle, recording and transcribing.
 pub fn update_tray(app: &AppHandle, phase: &str) {
-    let bytes: &[u8] = match phase {
-        "listening" => include_bytes!("../icons/tray-recording.png"),
-        "working" => include_bytes!("../icons/tray-transcribing.png"),
-        _ => include_bytes!("../icons/tray-idle.png"),
+    let (bytes, template): (&[u8], bool) = match phase {
+        "listening" => (include_bytes!("../../branding/tray/recording.png"), false),
+        "working" => (include_bytes!("../../branding/tray/transcribing.png"), false),
+        _ => idle_tray_icon(),
     };
     if let Some(tray) = app.tray_by_id("main") {
         if let Ok(icon) = tauri::image::Image::from_bytes(bytes) {
+            let _ = tray.set_icon_as_template(template);
             let _ = tray.set_icon(Some(icon));
         }
         let _ = tray.set_tooltip(Some(&format!("Bolum — {phase}")));
@@ -79,10 +90,10 @@ fn build_tray(app: &AppHandle) -> tauri::Result<()> {
         ],
     )?;
 
+    let (idle, template) = idle_tray_icon();
     TrayIconBuilder::with_id("main")
-        .icon(tauri::image::Image::from_bytes(include_bytes!(
-            "../icons/tray-idle.png"
-        ))?)
+        .icon(tauri::image::Image::from_bytes(idle)?)
+        .icon_as_template(template)
         .tooltip("Bolum")
         .menu(&menu)
         .show_menu_on_left_click(true)
