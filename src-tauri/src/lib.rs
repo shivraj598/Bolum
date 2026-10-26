@@ -194,6 +194,10 @@ pub fn run() {
             }
         })
         .setup(move |app| {
+            // A menu-bar app: no Dock icon, like LSUIElement in the bundle.
+            #[cfg(target_os = "macos")]
+            app.set_activation_policy(tauri::ActivationPolicy::Accessory);
+
             let handle = app.handle().clone();
             let level_handle = handle.clone();
             let recorder = audio::AudioRecorder::new(Arc::new(move |level: f32| {
@@ -207,6 +211,9 @@ pub fn run() {
             }
             apply_hotkey(&handle);
             ipc::spawn_server(handle.clone());
+            if let Err(err) = inject::request_permissions() {
+                log::warn!("text insertion unavailable: {err}");
+            }
 
             let start_hidden = app
                 .state::<AppState>()

@@ -201,6 +201,23 @@ pub fn finish(app: &AppHandle) {
 
 pub fn show_overlay(app: &AppHandle, visible: bool) {
     if let Some(window) = app.get_webview_window("overlay") {
+        if visible {
+            place_overlay(&window);
+        }
         let _ = if visible { window.show() } else { window.hide() };
     }
+}
+
+/// Centres the overlay near the bottom of the primary monitor. Wayland
+/// compositors ignore client positioning and place it themselves.
+fn place_overlay(window: &tauri::WebviewWindow) {
+    let (Ok(Some(monitor)), Ok(size)) = (window.primary_monitor(), window.outer_size()) else {
+        return;
+    };
+    let area = monitor.size();
+    let origin = monitor.position();
+    let margin = (96.0 * monitor.scale_factor()) as i32;
+    let x = origin.x + (area.width as i32 - size.width as i32) / 2;
+    let y = origin.y + area.height as i32 - size.height as i32 - margin;
+    let _ = window.set_position(tauri::PhysicalPosition::new(x, y));
 }
