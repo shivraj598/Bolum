@@ -103,19 +103,28 @@ Open the **Models** tab, download a model, and press **use**. Then dictate with 
 
 ## Models
 
-| Model | Engine | Size | Languages |
-| --- | --- | --- | --- |
-| Whisper Base (English) | whisper.cpp | ~60 MB | English |
-| Whisper Small | whisper.cpp | ~190 MB | 99 languages |
-| Whisper Large v3 Turbo | whisper.cpp | ~574 MB | 99 languages |
-| NVIDIA Parakeet TDT 0.6B v3 | ONNX int8 | ~670 MB | 25 European languages |
-| NVIDIA Canary 180M Flash | ONNX int8 | ~213 MB | en, de, es, fr (+ translation) |
+Recommended models come first in the Models tab; the rest are listed smallest first.
+
+| Model | Engine | Size | Languages | |
+| --- | --- | --- | --- | --- |
+| Whisper Base (English) | whisper.cpp | ~60 MB | English | recommended, default |
+| NVIDIA Parakeet TDT 0.6B v2 | ONNX int8 | ~661 MB | English | recommended |
+| NVIDIA Parakeet TDT 0.6B v3 | ONNX int8 | ~670 MB | 25 European languages | recommended |
+| Whisper Tiny (English) | whisper.cpp | ~44 MB | English | fastest |
+| Whisper Base (multilingual) | whisper.cpp | ~60 MB | 99 languages | |
+| NVIDIA Canary 180M Flash | ONNX int8 | ~213 MB | en, de, es, fr (+ translation) | |
+| Whisper Small (English) | whisper.cpp | ~190 MB | English | |
+| Whisper Small (multilingual) | whisper.cpp | ~190 MB | 99 languages | |
+| Whisper Large v3 Turbo | whisper.cpp | ~574 MB | 99 languages | most accurate Whisper |
+
+The accuracy and speed bars on each card are relative guides, not benchmark results.
 
 Weights are fetched from Hugging Face and verified against the SHA-256 recorded in
 [`src-tauri/src/models.rs`](src-tauri/src/models.rs) before use. Parakeet and Canary use
 the ONNX conversions published by [istupakov](https://huggingface.co/istupakov) in the
 [`onnx-asr`](https://github.com/istupakov/onnx-asr) project, built on NVIDIA's
-[Parakeet](https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3) and
+[Parakeet v2](https://huggingface.co/nvidia/parakeet-tdt-0.6b-v2),
+[Parakeet v3](https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3) and
 [Canary](https://huggingface.co/nvidia/canary-180m-flash) checkpoints (CC-BY-4.0).
 
 ## How it works
