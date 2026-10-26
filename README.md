@@ -1,7 +1,8 @@
 # Bolum
 
-Push-to-talk dictation for Linux desktops. Press a shortcut (or run `bolum toggle` from a
-compositor keybinding), speak, and the transcript is typed into whatever window has focus.
+Push-to-talk dictation for macOS and Linux desktops. Press a shortcut (or run `bolum toggle`
+from a compositor keybinding), speak, and the transcript is typed into whatever window has
+focus.
 Everything runs locally: Whisper through whisper.cpp, or NVIDIA Parakeet/Canary through
 ONNX Runtime.
 
@@ -14,8 +15,10 @@ Rust core, and a thin web UI, with the same download-and-verify model strategy.
   (ONNX, int8) with SHA-256 verified downloads.
 - **Two ways to trigger** — an in-app global shortcut where the desktop allows it, plus a
   `bolum toggle|start|stop|cancel|status|quit` control socket for compositor keybindings.
-- **Text delivery that adapts** — types with `wtype`, `kwtype`, `dotool`, `ydotool` or
-  `xdotool`, or pastes through the clipboard.
+- **Text delivery that adapts** — on macOS, native key events (CGEvent) or a clipboard
+  paste; on Linux, types with `wtype`, `kwtype`, `dotool`, `ydotool` or `xdotool`, or
+  pastes through the clipboard.
+- **Apple Silicon acceleration** — Whisper runs on the GPU through Metal on macOS.
 - **Optional LLM cleanup** — send the transcript through any OpenAI-compatible endpoint
   (Ollama, llama.cpp, LM Studio, OpenRouter, …) before it is inserted.
 - **History** — every dictation is kept in a JSON-lines file with copy and delete from
@@ -25,7 +28,19 @@ Rust core, and a thin web UI, with the same download-and-verify model strategy.
 
 ## Requirements
 
-- Linux with a Wayland or X11 session
+### macOS
+
+- macOS 11 or later (Apple Silicon or Intel)
+- Rust (stable), Node.js 20+ and `cmake` (`brew install rust node cmake`)
+- Xcode Command Line Tools (`xcode-select --install`)
+
+On first launch macOS asks for **Microphone** and **Accessibility** access (System
+Settings → Privacy & Security → Accessibility); the latter lets Bolum insert text into
+other apps. Bolum lives in the menu bar and has no Dock icon.
+
+### Linux
+
+- Wayland or X11 session
 - Rust (stable) and Node.js 20+
 - `cmake` (whisper.cpp build), plus GTK/WebKitGTK development packages for Tauri
 - One typing tool on `PATH`: `wtype` (Wayland), `xdotool`, `ydotool`, `dotool` or `kwtype`
@@ -41,7 +56,8 @@ sudo pacman -S base-devel cmake webkit2gtk-4.1 gtk3 libappindicator-gtk3 librsvg
 
 ```sh
 npm install
-npm run tauri build      # release AppImage + deb in src-tauri/target/release/bundle
+npm run tauri build      # release bundles in src-tauri/target/release/bundle
+                         #   macOS: Bolum.app + .dmg   Linux: AppImage + .deb
 npm run tauri dev        # development
 ```
 
@@ -53,6 +69,13 @@ Start Bolum (it stays in the tray; the settings window opens on first run):
 bolum            # the GUI/tray process
 bolum toggle     # ask the running instance to start/stop dictation
 bolum status     # idle | listening | working
+```
+
+On macOS the default shortcut is **⌃⌥Space** (Control-Option-Space); change it in the
+Dictation tab. To use the CLI, link the binary onto your `PATH`:
+
+```sh
+ln -s /Applications/Bolum.app/Contents/MacOS/bolum /usr/local/bin/bolum
 ```
 
 Hyprland keybinding:

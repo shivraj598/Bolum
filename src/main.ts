@@ -80,7 +80,7 @@ const DICTATION_FIELDS: Field[] = [
     key: "hotkey",
     label: "Trigger shortcut",
     type: "text",
-    hint: "Registered when the desktop allows it. On Wayland/Hyprland, bind `bolum toggle` instead.",
+    hint: "Registered when the desktop allows it (always on macOS). On Wayland/Hyprland, bind `bolum toggle` instead.",
   },
   { key: "push_to_talk", label: "Push to talk (hold the shortcut)", type: "bool" },
   {
