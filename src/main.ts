@@ -1,3 +1,4 @@
+import { getVersion } from "@tauri-apps/api/app";
 import { listen } from "@tauri-apps/api/event";
 import {
   api,
@@ -13,28 +14,46 @@ const $ = <T extends HTMLElement>(selector: string) =>
   document.querySelector(selector) as T;
 
 let settings: Settings = {};
+let models: ModelInfo[] = [];
 
-/* ------------------------------------------------------------------ tabs */
+const IS_MAC = navigator.userAgent.includes("Mac");
 
-$("#tabs").addEventListener("click", (event) => {
-  const button = (event.target as HTMLElement).closest<HTMLButtonElement>("button[data-tab]");
-  if (!button) return;
-  for (const other of document.querySelectorAll("#tabs button")) {
-    other.classList.toggle("active", other === button);
+/* ------------------------------------------------------------ navigation */
+
+function showPage(page: string) {
+  for (const button of document.querySelectorAll<HTMLButtonElement>("#nav button")) {
+    button.classList.toggle("active", button.dataset.page === page);
   }
-  for (const section of document.querySelectorAll<HTMLElement>("main > section")) {
-    section.hidden = section.id !== `tab-${button.dataset.tab}`;
+  for (const section of document.querySelectorAll<HTMLElement>("#content > section")) {
+    section.hidden = section.dataset.page !== page;
   }
+  $("#content").scrollTop = 0;
+  try {
+    localStorage.setItem("page", page);
+  } catch {
+    // Storage can be unavailable; the page simply isn't remembered.
+  }
+}
+
+$("#nav").addEventListener("click", (event) => {
+  const button = (event.target as HTMLElement).closest<HTMLButtonElement>("button[data-page]");
+  if (button) showPage(button.dataset.page!);
 });
+
+$("#footer-model").addEventListener("click", () => showPage("models"));
 
 /* ------------------------------------------------ status, level, notices */
 
-const pill = $("#status-pill");
 const levelBar = $("#level-bar");
 
 function setPhase(phase: Phase) {
-  pill.textContent = phase === "listening" ? "listening" : phase === "working" ? "working…" : "idle";
-  pill.className = `pill ${phase}`;
+  $("#status-dot").className = `status-dot ${phase}`;
+  $("#status-label").textContent =
+    phase === "listening" ? "Listening" : phase === "working" ? "Transcribing…" : "Ready";
+  const dictate = $<HTMLButtonElement>("#dictate");
+  dictate.textContent = phase === "listening" ? "Stop" : "Dictate";
+  dictate.classList.toggle("recording", phase === "listening");
+  dictate.disabled = phase === "working";
   if (phase === "idle") levelBar.style.width = "0%";
 }
 
@@ -55,169 +74,382 @@ void listen<number>("level", (event) => {
 });
 void listen<string>("notice", (event) => notice(event.payload));
 void listen<string>("transcript", (event) => {
-  $("#last-transcript").textContent = event.payload;
+  const last = $("#last-transcript");
+  last.textContent = event.payload;
+  last.classList.remove("muted");
   void loadHistory();
 });
 void listen<{ id: string; received: number; total: number }>("model-progress", (event) => {
-  const row = document.querySelector<HTMLElement>(
-    `[data-model="${CSS.escape(event.payload.id)}"] .progress`,
-  );
-  if (row) row.style.width = `${Math.round((event.payload.received / event.payload.total) * 100)}%`;
+  const card = document.querySelector<HTMLElement>(`[data-model="${CSS.escape(event.payload.id)}"]`);
+  if (!card) return;
+  const percent = Math.round((event.payload.received / event.payload.total) * 100);
+  const bar = card.querySelector<HTMLElement>(".progress");
+  const label = card.querySelector<HTMLElement>(".progress-label");
+  if (bar) bar.style.width = `${percent}%`;
+  if (label) label.textContent = `${percent}%`;
 });
 
 /* ----------------------------------------------------------- settings UI */
 
+type Option = { value: string; label: string };
+
 type Field = {
   key: string;
   label: string;
-  type: "text" | "password" | "bool" | "select" | "number" | "textarea";
-  options?: () => Promise<string[]>;
+  type: "text" | "password" | "switch" | "select" | "number" | "textarea" | "shortcut";
+  options?: () => Option[] | Promise<Option[]>;
   hint?: string;
 };
 
-const DICTATION_FIELDS: Field[] = [
+type Group = { title: string; fields: Field[] };
+
+const LANGUAGES: Option[] = [
+  ["auto", "Auto-detect"],
+  ["en", "English"],
+  ["es", "Spanish"],
+  ["fr", "French"],
+  ["de", "German"],
+  ["it", "Italian"],
+  ["pt", "Portuguese"],
+  ["nl", "Dutch"],
+  ["pl", "Polish"],
+  ["ru", "Russian"],
+  ["uk", "Ukrainian"],
+  ["tr", "Turkish"],
+  ["ar", "Arabic"],
+  ["hi", "Hindi"],
+  ["ne", "Nepali"],
+  ["zh", "Chinese"],
+  ["ja", "Japanese"],
+  ["ko", "Korean"],
+  ["vi", "Vietnamese"],
+  ["id", "Indonesian"],
+  ["sv", "Swedish"],
+  ["da", "Danish"],
+  ["fi", "Finnish"],
+  ["cs", "Czech"],
+  ["el", "Greek"],
+].map(([value, label]) => ({ value, label }));
+
+const options = (...pairs: [string, string][]): (() => Option[]) => () =>
+  pairs.map(([value, label]) => ({ value, label }));
+
+const GENERAL_GROUPS: Group[] = [
   {
-    key: "hotkey",
-    label: "Trigger shortcut",
-    type: "text",
-    hint: "Registered when the desktop allows it (always on macOS). On Wayland/Hyprland, bind `bolum toggle` instead.",
-  },
-  { key: "push_to_talk", label: "Push to talk (hold the shortcut)", type: "bool" },
-  {
-    key: "microphone",
-    label: "Microphone",
-    type: "select",
-    options: async () => ["", ...(await api.getMicrophones())],
-  },
-  {
-    key: "model",
-    label: "Model",
-    type: "select",
-    options: async () =>
-      (await api.listModels()).filter((model) => model.downloaded).map((model) => model.id),
+    title: "Shortcut",
+    fields: [
+      {
+        key: "hotkey",
+        label: "Dictation shortcut",
+        type: "shortcut",
+        hint: "Click and press a new combination. On Wayland/Hyprland, bind `bolum toggle` instead.",
+      },
+      {
+        key: "push_to_talk",
+        label: "Push to talk",
+        type: "switch",
+        hint: "Hold the shortcut while speaking instead of pressing it to start and stop.",
+      },
+    ],
   },
   {
-    key: "language",
-    label: "Language",
-    type: "text",
-    hint: "`auto` to detect, or a code such as en, de, es, fr, ru.",
+    title: "Input",
+    fields: [
+      {
+        key: "microphone",
+        label: "Microphone",
+        type: "select",
+        options: async () => [
+          { value: "", label: "System default" },
+          ...(await api.getMicrophones()).map((name) => ({ value: name, label: name })),
+        ],
+      },
+      {
+        key: "language",
+        label: "Language",
+        type: "select",
+        options: () => LANGUAGES,
+        hint: "Auto-detect needs a multilingual model. English-only models ignore this.",
+      },
+    ],
   },
   {
-    key: "translate_to",
-    label: "Translate to",
-    type: "text",
-    hint: "Optional: `en` with Whisper, or en/de/es/fr with Canary.",
+    title: "Output",
+    fields: [
+      {
+        key: "injection",
+        label: "Text delivery",
+        type: "select",
+        options: options(["type", "Type it"], ["clipboard", "Paste from clipboard"], ["none", "Don't insert"]),
+      },
+      { key: "append_trailing_space", label: "Add a space after the text", type: "switch" },
+      { key: "auto_submit", label: "Press Enter after inserting", type: "switch" },
+    ],
   },
-  {
-    key: "injection",
-    label: "Text delivery",
-    type: "select",
-    options: async () => ["type", "clipboard", "none"],
-  },
-  {
-    key: "typing_tool",
-    label: "Typing tool",
-    type: "select",
-    options: async () => ["auto", ...(await api.getTypingTools())],
-  },
-  { key: "append_trailing_space", label: "Append a trailing space", type: "bool" },
-  { key: "auto_submit", label: "Press Enter after inserting", type: "bool" },
-  { key: "show_overlay", label: "Show overlay while dictating", type: "bool" },
-  { key: "start_hidden", label: "Start hidden in the tray", type: "bool" },
-  { key: "history_limit", label: "History entries to keep", type: "number" },
 ];
 
-const POST_PROCESS_FIELDS: Field[] = [
-  { key: "post_process.enabled", label: "Enable LLM post-processing", type: "bool" },
+const ADVANCED_GROUPS: Group[] = [
   {
-    key: "post_process.base_url",
-    label: "Endpoint",
-    type: "text",
-    hint: "Any OpenAI-compatible /chat/completions base URL, e.g. http://localhost:11434/v1",
+    title: "Appearance",
+    fields: [
+      {
+        key: "theme",
+        label: "Theme",
+        type: "select",
+        options: options(["system", "System"], ["light", "Light"], ["dark", "Dark"]),
+      },
+      { key: "show_overlay", label: "Show overlay while dictating", type: "switch" },
+      { key: "start_hidden", label: "Start hidden in the menu bar", type: "switch" },
+    ],
   },
-  { key: "post_process.model", label: "Model", type: "text" },
-  { key: "post_process.api_key", label: "API key", type: "password" },
-  { key: "post_process.prompt", label: "Prompt", type: "textarea" },
+  {
+    title: "Transcription",
+    fields: [
+      {
+        key: "translate_to",
+        label: "Translate to",
+        type: "select",
+        options: options(["", "Off"], ["en", "English"], ["de", "German"], ["es", "Spanish"], ["fr", "French"]),
+        hint: "Whisper translates to English; Canary translates between en, de, es and fr.",
+      },
+      {
+        key: "typing_tool",
+        label: "Typing tool",
+        type: "select",
+        options: async () => [
+          { value: "auto", label: "Automatic" },
+          ...(await api.getTypingTools()).map((tool) => ({ value: tool, label: tool })),
+        ],
+        hint: "Used on Linux when text delivery is set to type.",
+      },
+    ],
+  },
+  {
+    title: "History",
+    fields: [{ key: "history_limit", label: "Entries to keep", type: "number" }],
+  },
 ];
 
-async function renderFields(container: HTMLElement, fields: Field[]) {
+const POST_PROCESS_GROUPS: Group[] = [
+  {
+    title: "Endpoint",
+    fields: [
+      { key: "post_process.enabled", label: "Enable post-processing", type: "switch" },
+      {
+        key: "post_process.base_url",
+        label: "Base URL",
+        type: "text",
+        hint: "Any OpenAI-compatible /chat/completions base, e.g. Ollama at http://localhost:11434/v1",
+      },
+      { key: "post_process.model", label: "Model", type: "text" },
+      { key: "post_process.api_key", label: "API key", type: "password" },
+    ],
+  },
+  {
+    title: "Prompt",
+    fields: [{ key: "post_process.prompt", label: "Instructions", type: "textarea" }],
+  },
+];
+
+async function renderGroups(container: HTMLElement, groups: Group[]) {
   container.innerHTML = "";
-  for (const field of fields) {
-    const row = document.createElement("label");
-    row.className = "row";
-    const name = document.createElement("span");
-    name.textContent = field.label;
-    if (field.hint) {
-      const hint = document.createElement("small");
-      hint.className = "hint";
-      hint.textContent = field.hint;
-      name.append(document.createElement("br"), hint);
-    }
-    row.append(name);
-    const current = settingValue(settings, field.key);
-
-    if (field.type === "bool") {
-      const input = document.createElement("input");
-      input.type = "checkbox";
-      input.checked = Boolean(current);
-      input.onchange = () => void save(field.key, input.checked);
-      row.append(input);
-    } else if (field.type === "select") {
-      const select = document.createElement("select");
-      const options = field.options ? await field.options() : [];
-      const currentOption = current == null ? "" : String(current);
-      if (!options.includes(currentOption)) options.unshift(currentOption);
-      select.innerHTML = options
-        .map((option) => `<option value="${escapeHtml(option)}">${escapeHtml(option || "system default")}</option>`)
-        .join("");
-      select.value = currentOption;
-      select.onchange = () => void save(field.key, select.value);
-      row.append(select);
-    } else if (field.type === "textarea") {
-      const textarea = document.createElement("textarea");
-      textarea.rows = 3;
-      textarea.value = String(current ?? "");
-      textarea.onchange = () => void save(field.key, textarea.value);
-      row.append(textarea);
-    } else {
-      const input = document.createElement("input");
-      input.type = field.type === "number" ? "number" : field.type === "password" ? "password" : "text";
-      input.value = String(current ?? "");
-      input.onchange = () => {
-        if (field.type !== "number") {
-          void save(field.key, input.value);
-          return;
-        }
-        // `Number("")` is 0, which would quietly discard the whole history.
-        const parsed = Number(input.value);
-        const value = Number.isFinite(parsed) ? Math.max(1, Math.round(parsed)) : 1;
-        input.value = String(value);
-        void save(field.key, value);
-      };
-      row.append(input);
-    }
-    container.append(row);
+  for (const group of groups) {
+    const wrapper = document.createElement("div");
+    wrapper.className = "group";
+    wrapper.innerHTML = `<h2 class="group-title">${escapeHtml(group.title)}</h2>`;
+    const body = document.createElement("div");
+    body.className = "group-body";
+    for (const field of group.fields) body.append(await renderField(field));
+    wrapper.append(body);
+    container.append(wrapper);
   }
+}
+
+async function renderField(field: Field): Promise<HTMLElement> {
+  const row = document.createElement("div");
+  row.className = field.type === "textarea" ? "setting stacked" : "setting";
+  const text = document.createElement("div");
+  text.className = "setting-text";
+  text.innerHTML = `<span class="setting-label">${escapeHtml(field.label)}</span>${
+    field.hint ? `<span class="setting-hint">${hintHtml(field.hint)}</span>` : ""
+  }`;
+  row.append(text);
+  const current = settingValue(settings, field.key);
+
+  if (field.type === "switch") {
+    const control = document.createElement("label");
+    control.className = "switch";
+    const input = document.createElement("input");
+    input.type = "checkbox";
+    input.checked = Boolean(current);
+    input.setAttribute("aria-label", field.label);
+    input.onchange = () => void save(field.key, input.checked);
+    control.append(input, document.createElement("span"));
+    row.append(control);
+  } else if (field.type === "select") {
+    const select = document.createElement("select");
+    select.setAttribute("aria-label", field.label);
+    const choices = field.options ? [...(await field.options())] : [];
+    const currentValue = current == null ? "" : String(current);
+    if (!choices.some((choice) => choice.value === currentValue)) {
+      choices.unshift({ value: currentValue, label: currentValue || "System default" });
+    }
+    select.innerHTML = choices
+      .map((choice) => `<option value="${escapeHtml(choice.value)}">${escapeHtml(choice.label)}</option>`)
+      .join("");
+    select.value = currentValue;
+    select.onchange = () => void save(field.key, select.value);
+    row.append(select);
+  } else if (field.type === "shortcut") {
+    row.append(shortcutControl(field.key, String(current ?? "")));
+  } else if (field.type === "textarea") {
+    const textarea = document.createElement("textarea");
+    textarea.rows = 4;
+    textarea.value = String(current ?? "");
+    textarea.setAttribute("aria-label", field.label);
+    textarea.onchange = () => void save(field.key, textarea.value);
+    row.append(textarea);
+  } else {
+    const input = document.createElement("input");
+    input.type = field.type;
+    input.value = String(current ?? "");
+    input.setAttribute("aria-label", field.label);
+    input.onchange = () => {
+      if (field.type !== "number") {
+        void save(field.key, input.value);
+        return;
+      }
+      // `Number("")` is 0, which would quietly discard the whole history.
+      const parsed = Number(input.value);
+      const value = Number.isFinite(parsed) ? Math.max(1, Math.round(parsed)) : 1;
+      input.value = String(value);
+      void save(field.key, value);
+    };
+    row.append(input);
+  }
+  return row;
 }
 
 async function save(key: string, value: unknown) {
   settings = await api.setSetting(key, value);
+  if (key === "theme") applyTheme();
+  if (key === "model") renderModels();
+}
+
+function applyTheme() {
+  const theme = String(settingValue(settings, "theme") ?? "system");
+  if (theme === "light" || theme === "dark") document.documentElement.dataset.theme = theme;
+  else delete document.documentElement.dataset.theme;
+}
+
+/* -------------------------------------------------------------- shortcut */
+
+const MODIFIER_LABEL: Record<string, string> = IS_MAC
+  ? { ctrl: "⌃", alt: "⌥", shift: "⇧", super: "⌘" }
+  : { ctrl: "Ctrl", alt: "Alt", shift: "Shift", super: "Super" };
+
+const MODIFIER_ALIAS: Record<string, string> = {
+  control: "ctrl",
+  option: "alt",
+  cmd: "super",
+  command: "super",
+  meta: "super",
+};
+
+/** Splits an accelerator such as `ctrl+alt+space` into display keycaps. */
+function keycaps(accelerator: string): string[] {
+  return accelerator
+    .split("+")
+    .map((part) => part.trim().toLowerCase())
+    .filter(Boolean)
+    .map((part) => MODIFIER_ALIAS[part] ?? part)
+    .map((part) =>
+      MODIFIER_LABEL[part] ?? (part.length === 1 ? part.toUpperCase() : part[0].toUpperCase() + part.slice(1)),
+    );
+}
+
+/** Maps a physical key to the accelerator name the global-shortcut plugin parses. */
+function acceleratorKey(code: string): string | null {
+  if (/^(Control|Alt|Shift|Meta|OS)(Left|Right)?$/.test(code)) return null;
+  if (/^Key[A-Z]$/.test(code)) return code.slice(3).toLowerCase();
+  if (/^Digit\d$/.test(code)) return code.slice(5);
+  return code.toLowerCase();
+}
+
+function shortcutControl(key: string, current: string): HTMLElement {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "shortcut";
+  button.setAttribute("aria-label", "Change shortcut");
+  const show = (accelerator: string) => {
+    button.innerHTML = accelerator
+      ? keycaps(accelerator).map((cap) => `<kbd>${escapeHtml(cap)}</kbd>`).join("")
+      : '<span class="muted">Not set</span>';
+  };
+  show(current);
+
+  button.onclick = () => {
+    if (button.classList.contains("recording")) return;
+    button.classList.add("recording");
+    button.textContent = "Press a shortcut…";
+
+    const onKey = (event: KeyboardEvent) => {
+      event.preventDefault();
+      event.stopPropagation();
+      const modifiers = [
+        event.ctrlKey && "ctrl",
+        event.altKey && "alt",
+        event.shiftKey && "shift",
+        event.metaKey && "super",
+      ].filter(Boolean) as string[];
+      if (event.code === "Escape" && modifiers.length === 0) {
+        finish(null);
+        return;
+      }
+      const name = acceleratorKey(event.code);
+      if (!name) return;
+      if (modifiers.length === 0 && !/^f\d+$/.test(name)) {
+        button.textContent = "Add a modifier key…";
+        return;
+      }
+      finish([...modifiers, name].join("+"));
+    };
+    const onBlur = () => finish(null);
+    const finish = (accelerator: string | null) => {
+      window.removeEventListener("keydown", onKey, true);
+      button.removeEventListener("blur", onBlur);
+      button.classList.remove("recording");
+      if (accelerator) {
+        show(accelerator);
+        void save(key, accelerator);
+      } else {
+        show(String(settingValue(settings, key) ?? ""));
+      }
+    };
+    window.addEventListener("keydown", onKey, true);
+    button.addEventListener("blur", onBlur);
+  };
+  return button;
 }
 
 /* ---------------------------------------------------------------- models */
 
 const ENGINE_LABEL: Record<string, string> = {
-  whisper: "Whisper (whisper.cpp)",
-  parakeet: "NVIDIA Parakeet TDT",
-  canary: "NVIDIA Canary",
+  whisper: "Whisper",
+  parakeet: "Parakeet",
+  canary: "Canary",
 };
+
+const TRASH_ICON =
+  '<svg viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3" /></svg>';
 
 let modelTimer: number | undefined;
 
+const selectedModel = () => String(settingValue(settings, "model") ?? "");
+
 async function loadModels() {
-  const models = await api.listModels();
-  const selected = String(settingValue(settings, "model") ?? "");
-  $("#model-list").innerHTML = models.map((model) => modelRow(model, selected)).join("");
+  models = await api.listModels();
+  renderModels();
   if (models.some((model) => model.downloading)) {
     scheduleModelsRefresh();
   } else if (modelTimer !== undefined) {
@@ -226,47 +458,133 @@ async function loadModels() {
   }
 }
 
-/// Downloads report progress from the backend; keep the rows fresh until they settle.
+/// Downloads report progress from the backend; keep the cards fresh until they settle.
 function scheduleModelsRefresh() {
   if (modelTimer !== undefined) return;
   modelTimer = window.setInterval(() => void loadModels(), 500);
 }
 
-function modelRow(model: ModelInfo, selected: string) {
-  const state = model.downloaded
-    ? model.id === selected ? "in use" : "ready"
-    : model.downloading ? "downloading…" : `${model.size_mb} MB`;
-  const actions = model.downloaded
-    ? `<button data-action="use">use</button> <button data-action="delete">delete</button>`
-    : model.downloading
-      ? `<button data-action="cancel">cancel</button>`
-      : `<button data-action="download">download</button>`;
-  return `<li data-model="${escapeHtml(model.id)}" class="${model.id === selected ? "selected" : ""}">
-    <div><strong>${escapeHtml(model.name)}</strong>
-      <span class="hint">· ${escapeHtml(ENGINE_LABEL[model.engine] ?? model.engine)} · ${escapeHtml(model.languages)}</span></div>
-    <div class="hint">${escapeHtml(model.description)}</div>
-    <div class="row"><span class="hint">${state}</span><span>${actions}</span></div>
-    <div class="bar"><i class="progress" style="width:${model.progress}%"></i></div>
-  </li>`;
+function renderModels() {
+  const selected = selectedModel();
+  $("#models-recommended").innerHTML = models
+    .filter((model) => model.recommended)
+    .map((model) => modelCard(model, selected))
+    .join("");
+  $("#models-more").innerHTML = models
+    .filter((model) => !model.recommended)
+    .map((model) => modelCard(model, selected))
+    .join("");
+  $("#welcome").hidden = models.some((model) => model.downloaded);
+
+  const active = models.find((model) => model.id === selected && model.downloaded);
+  $("#footer-model-name").textContent = active ? active.name : "No model — choose one";
+  $("#footer-model").classList.toggle("warning", !active);
 }
 
-$("#model-list").addEventListener("click", async (event) => {
+function sizeLabel(megabytes: number) {
+  return megabytes >= 1000 ? `${(megabytes / 1000).toFixed(1)} GB` : `${megabytes} MB`;
+}
+
+function score(label: string, value: number) {
+  return `<span class="score"><span>${label}</span><span class="score-bar"><i style="width:${Math.round(
+    value * 100,
+  )}%"></i></span></span>`;
+}
+
+function modelCard(model: ModelInfo, selected: string) {
+  const active = model.downloaded && model.id === selected;
+  let actions: string;
+  if (active) {
+    actions = `<span class="chip accent">Active</span>
+      <button class="icon-button" data-action="delete" title="Delete model">${TRASH_ICON}</button>`;
+  } else if (model.downloaded) {
+    actions = `<button class="button" data-action="use">Use</button>
+      <button class="icon-button" data-action="delete" title="Delete model">${TRASH_ICON}</button>`;
+  } else if (model.downloading) {
+    actions = `<button class="button" data-action="cancel">Cancel</button>`;
+  } else {
+    actions = `<button class="button primary" data-action="download">${model.progress > 0 ? "Resume" : "Download"}</button>`;
+  }
+  const progress = model.downloading
+    ? `<div class="model-progress"><div class="bar"><i class="progress" style="width:${model.progress}%"></i></div>
+        <span class="progress-label">${model.progress}%</span></div>`
+    : "";
+  return `<article class="model-card${active ? " selected" : ""}" data-model="${escapeHtml(model.id)}">
+    <div class="model-main">
+      <div class="model-title">
+        <h3>${escapeHtml(model.name)}</h3>
+        ${model.recommended ? '<span class="chip soft">Recommended</span>' : ""}
+      </div>
+      <p class="model-desc">${escapeHtml(model.description)}</p>
+      <div class="model-meta">
+        ${score("Accuracy", model.accuracy)}
+        ${score("Speed", model.speed)}
+        <span class="tags">
+          <span class="chip">${escapeHtml(ENGINE_LABEL[model.engine] ?? model.engine)}</span>
+          <span class="chip">${escapeHtml(model.languages)}</span>
+          <span class="chip">${sizeLabel(model.size_mb)}</span>
+        </span>
+      </div>
+      ${progress}
+    </div>
+    <div class="model-actions">${actions}</div>
+  </article>`;
+}
+
+function downloadModel(model: ModelInfo) {
+  // The download runs to completion in the backend; the card stays fresh
+  // through progress events and the polling refresh.
+  api
+    .downloadModel(model.id)
+    .then(async () => {
+      await loadModels();
+      const current = models.find((other) => other.id === selectedModel());
+      if (!current?.downloaded) {
+        await save("model", model.id);
+        notice(`${model.name} is ready and in use.`);
+      } else {
+        notice(`${model.name} downloaded.`);
+      }
+    })
+    .catch((error) => {
+      if (!String(error).includes("cancelled")) notice(String(error));
+      void loadModels();
+    });
+}
+
+/** Deleting asks once: the first click arms the button for a few seconds. */
+function confirmDelete(button: HTMLButtonElement) {
+  if (button.classList.contains("armed")) return true;
+  button.classList.add("armed");
+  button.title = "Click again to delete";
+  setTimeout(() => {
+    button.classList.remove("armed");
+    button.title = "Delete model";
+  }, 3000);
+  return false;
+}
+
+$('section[data-page="models"]').addEventListener("click", async (event) => {
   const button = (event.target as HTMLElement).closest<HTMLButtonElement>("button[data-action]");
-  const row = (event.target as HTMLElement).closest<HTMLElement>("[data-model]");
-  if (!button || !row) return;
-  const id = row.dataset.model!;
-  const action = button.dataset.action;
+  const card = (event.target as HTMLElement).closest<HTMLElement>("[data-model]");
+  if (!button || !card) return;
+  const model = models.find((other) => other.id === card.dataset.model);
+  if (!model) return;
   try {
-    if (action === "download") {
-      // The download runs to completion in the backend; the row stays fresh
-      // through progress events and the polling refresh.
-      void api.downloadModel(id).catch((error) => notice(String(error)));
-    } else if (action === "cancel") {
-      await api.cancelDownload(id);
-    } else if (action === "delete") {
-      await api.deleteModel(id);
-    } else if (action === "use") {
-      await save("model", id);
+    switch (button.dataset.action) {
+      case "download":
+        downloadModel(model);
+        break;
+      case "cancel":
+        await api.cancelDownload(model.id);
+        break;
+      case "delete":
+        if (!confirmDelete(button)) return;
+        await api.deleteModel(model.id);
+        break;
+      case "use":
+        await save("model", model.id);
+        break;
     }
   } catch (error) {
     notice(String(error));
@@ -276,23 +594,33 @@ $("#model-list").addEventListener("click", async (event) => {
 
 /* --------------------------------------------------------------- history */
 
+const COPY_ICON =
+  '<svg viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2" /><path d="M5 15V6a2 2 0 0 1 2-2h8" /></svg>';
+
 async function loadHistory() {
   const entries = await api.listHistory();
   $("#history-list").innerHTML = entries.length
     ? entries.map(historyRow).join("")
-    : '<li class="hint">No dictations yet.</li>';
+    : '<div class="empty">No dictations yet. Press the shortcut and start speaking.</div>';
 }
 
 function historyRow(entry: HistoryEntry) {
-  const when = new Date(entry.timestamp_ms).toLocaleString();
+  const date = new Date(entry.timestamp_ms);
+  const today = date.toDateString() === new Date().toDateString();
+  const when = today
+    ? `Today ${date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
+    : date.toLocaleString([], { dateStyle: "medium", timeStyle: "short" });
   const text = entry.post_processed ?? entry.text;
-  return `<li data-history="${entry.id}">
-    <div>${escapeHtml(text)}</div>
-    <div class="hint">${escapeHtml(when)} · ${escapeHtml(entry.model)} · ${(entry.duration_ms / 1000).toFixed(1)} s</div>
-    <div class="row"><span></span><span>
-      <button data-action="copy">copy</button>
-      <button data-action="delete">delete</button></span></div>
-  </li>`;
+  return `<article class="history-item" data-history="${entry.id}">
+    <p class="history-text">${escapeHtml(text)}</p>
+    <div class="history-meta">
+      <span>${escapeHtml(when)} · ${escapeHtml(entry.model)} · ${(entry.duration_ms / 1000).toFixed(1)} s</span>
+      <span class="history-actions">
+        <button class="icon-button" data-action="copy" title="Copy">${COPY_ICON}</button>
+        <button class="icon-button" data-action="delete" title="Delete">${TRASH_ICON}</button>
+      </span>
+    </div>
+  </article>`;
 }
 
 $("#history-list").addEventListener("click", async (event) => {
@@ -300,8 +628,15 @@ $("#history-list").addEventListener("click", async (event) => {
   const row = (event.target as HTMLElement).closest<HTMLElement>("[data-history]");
   if (!button || !row) return;
   const id = Number(row.dataset.history);
-  if (button.dataset.action === "copy") await api.copyHistory(id);
-  if (button.dataset.action === "delete") await api.deleteHistory(id);
+  try {
+    if (button.dataset.action === "copy") {
+      await api.copyHistory(id);
+      notice("Copied to the clipboard.");
+    }
+    if (button.dataset.action === "delete") await api.deleteHistory(id);
+  } catch (error) {
+    notice(String(error));
+  }
   await loadHistory();
 });
 
@@ -324,13 +659,30 @@ function escapeHtml(value: string) {
   );
 }
 
+/** Escapes a hint and renders `backticked` spans as code. */
+function hintHtml(value: string) {
+  return escapeHtml(value).replace(/`([^`]+)`/g, "<code>$1</code>");
+}
+
 async function boot() {
   settings = await api.getSettings();
+  applyTheme();
   setPhase(await api.getStatus());
-  await renderFields($("#dictation-fields"), DICTATION_FIELDS);
-  await renderFields($("#post-process-fields"), POST_PROCESS_FIELDS);
+  await renderGroups($("#general-groups"), GENERAL_GROUPS);
+  await renderGroups($("#advanced-groups"), ADVANCED_GROUPS);
+  await renderGroups($("#post-process-groups"), POST_PROCESS_GROUPS);
   await loadModels();
   await loadHistory();
+  $("#version").textContent = await getVersion().catch(() => "unknown");
+
+  let page = "general";
+  try {
+    page = localStorage.getItem("page") ?? page;
+  } catch {
+    // Fall back to the first page.
+  }
+  // New users land on Models: nothing works until one is downloaded.
+  showPage(models.some((model) => model.downloaded) ? page : "models");
 }
 
 void boot();
