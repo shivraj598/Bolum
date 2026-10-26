@@ -418,3 +418,48 @@ fn input_shape(session: &Session, name: &str, fallback: (i64, i64)) -> (i64, i64
         None => fallback,
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn vocab(pieces: &[&str]) -> Vec<String> {
+        pieces.iter().map(|piece| piece.to_string()).collect()
+    }
+
+    #[test]
+    fn attaches_spaces_to_words_and_drops_the_leading_one() {
+        let tokens = vocab(&[" Hello", ",", " world", "."]);
+        assert_eq!(tokens_to_text(&tokens, &[0, 1, 2, 3]), "Hello, world.");
+    }
+
+    #[test]
+    fn joins_subword_pieces() {
+        let tokens = vocab(&[" dict", "ation", " works"]);
+        assert_eq!(tokens_to_text(&tokens, &[0, 1, 2]), "dictation works");
+    }
+
+    #[test]
+    fn spaces_before_punctuation_vanish() {
+        let tokens = vocab(&[" Hi", " ,", " there", " !"]);
+        assert_eq!(tokens_to_text(&tokens, &[0, 1, 2, 3]), "Hi, there!");
+    }
+
+    #[test]
+    fn drops_control_tokens_and_unknown_ids() {
+        let tokens = vocab(&["<|en|>", " Hi", "<|endoftext|>"]);
+        assert_eq!(tokens_to_text(&tokens, &[0, 1, 2, 99]), "Hi");
+    }
+
+    #[test]
+    fn read_vocab_maps_ids_and_the_space_marker() {
+        let path = std::env::temp_dir().join(format!("bolum-vocab-{}.txt", std::process::id()));
+        std::fs::write(&path, "▁hello 0\nworld 1\n<blk> 2\nnot-a-line\n").unwrap();
+        let read = read_vocab(&path);
+        let _ = std::fs::remove_file(&path);
+        let (tokens, by_token) = read.unwrap();
+        assert_eq!(tokens, vec![" hello", "world", "<blk>"]);
+        assert_eq!(by_token["<blk>"], 2);
+        assert_eq!(by_token[" hello"], 0);
+    }
+}
