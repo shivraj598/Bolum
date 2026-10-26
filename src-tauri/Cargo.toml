@@ -1,6 +1,6 @@
 [package]
 name = "bolum"
-version = "0.1.0"
+version = "1.0.0"
 description = "Push-to-talk dictation with local Whisper and NVIDIA ONNX engines"
 authors = ["shivraj598"]
 edition = "2021"
