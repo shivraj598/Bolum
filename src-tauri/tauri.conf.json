@@ -14,10 +14,10 @@
       {
         "label": "main",
         "title": "Bolum",
-        "width": 720,
-        "height": 580,
-        "minWidth": 560,
-        "minHeight": 420,
+        "width": 820,
+        "height": 620,
+        "minWidth": 660,
+        "minHeight": 480,
         "visible": false,
         "center": true
       },
@@ -35,6 +35,7 @@
         "shadow": false,
         "visible": false,
         "focusable": false,
+        "acceptFirstMouse": true,
         "visibleOnAllWorkspaces": true
       }
     ],
