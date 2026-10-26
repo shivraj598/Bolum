@@ -28,6 +28,27 @@ Rust core, and a thin web UI, with the same download-and-verify model strategy.
 - **Tray + overlay feedback** — the tray icon and a small overlay show listening and
   transcribing states.
 
+## Install
+
+Download the latest installer from
+[Releases](https://github.com/shivraj598/Bolum/releases/latest):
+
+| Platform | File |
+| --- | --- |
+| macOS 11+ (Apple Silicon) | `Bolum_<version>_aarch64.dmg` |
+| Linux x86_64, any distribution | `Bolum_<version>_amd64.AppImage` |
+| Debian / Ubuntu | `Bolum_<version>_amd64.deb` |
+
+**macOS:** open the `.dmg` and drag Bolum to Applications. The app is not signed with an
+Apple Developer ID yet, so the first launch is blocked. Open **System Settings → Privacy &
+Security** and click **Open Anyway**, or run
+`xattr -dr com.apple.quarantine /Applications/Bolum.app`.
+
+**Linux:** `chmod +x Bolum_*.AppImage && ./Bolum_*.AppImage`, or
+`sudo apt install ./Bolum_*_amd64.deb`.
+
+To build from source instead, see [Build and run](#build-and-run).
+
 ## Requirements
 
 ### macOS
