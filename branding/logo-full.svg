@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 260">
+  <!-- Mark and wordmark, for the README, a website or release notes. -->
+  <rect width="300" height="260" rx="28" fill="#0b0b0c" />
+  <g transform="translate(62.6 13) scale(1.9)" fill="none" stroke="#ffffff" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M67.2 21.4A32 27 0 0 0 10 38A32 27 0 0 0 14.3 51.5L12 70L28.5 62.5A32 27 0 0 0 67.2 54.6" stroke-width="7" />
+    <path d="M33 34.5v7M48 34.5v7" stroke-width="9" />
+    <path d="M71 29v18M83 21v34" stroke-width="6.5" />
+  </g>
+  <text x="150" y="222" fill="#ffffff" font-family="ui-rounded, 'SF Pro Rounded', Nunito, 'Varela Round', system-ui, sans-serif" font-size="68" font-weight="800" text-anchor="middle" letter-spacing="-1">bolum</text>
+</svg>
