@@ -100,13 +100,7 @@ void listen<string>("transcript", (event) => {
   void loadHistory();
 });
 void listen<{ id: string; received: number; total: number }>("model-progress", (event) => {
-  const card = document.querySelector<HTMLElement>(`[data-model="${CSS.escape(event.payload.id)}"]`);
-  if (!card) return;
-  const percent = Math.round((event.payload.received / event.payload.total) * 100);
-  const bar = card.querySelector<HTMLElement>(".progress");
-  const label = card.querySelector<HTMLElement>(".progress-label");
-  if (bar) bar.style.width = `${percent}%`;
-  if (label) label.textContent = `${percent}%`;
+  setProgress(event.payload.id, Math.round((event.payload.received / event.payload.total) * 100));
 });
 
 /* ----------------------------------------------------------- settings UI */
@@ -492,41 +486,57 @@ const TRASH_ICON =
   '<svg viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3" /></svg>';
 
 let modelTimer: number | undefined;
+let modelsSignature = "";
 
 const selectedModel = () => String(settingValue(settings, "model") ?? "");
 
 async function loadModels() {
   models = await api.listModels();
   renderModels();
+  // Progress arrives as events; this slow poll only catches downloads that
+  // started before the window opened, and notices when they settle.
   if (models.some((model) => model.downloading)) {
-    scheduleModelsRefresh();
+    modelTimer ??= window.setInterval(() => void loadModels(), 1500);
   } else if (modelTimer !== undefined) {
     window.clearInterval(modelTimer);
     modelTimer = undefined;
   }
 }
 
-/// Downloads report progress from the backend; keep the cards fresh until they settle.
-function scheduleModelsRefresh() {
-  if (modelTimer !== undefined) return;
-  modelTimer = window.setInterval(() => void loadModels(), 500);
-}
-
+/** Rebuilds the cards only when what they show changes; progress is patched in place. */
 function renderModels() {
   const selected = selectedModel();
-  $("#models-recommended").innerHTML = models
-    .filter((model) => model.recommended)
-    .map((model) => modelCard(model, selected))
-    .join("");
-  $("#models-more").innerHTML = models
-    .filter((model) => !model.recommended)
-    .map((model) => modelCard(model, selected))
-    .join("");
+  const signature = JSON.stringify([
+    selected,
+    models.map((model) => [model.id, model.downloaded, model.downloading, model.progress > 0]),
+  ]);
+  if (signature !== modelsSignature) {
+    modelsSignature = signature;
+    $("#models-recommended").innerHTML = models
+      .filter((model) => model.recommended)
+      .map((model) => modelCard(model, selected))
+      .join("");
+    $("#models-more").innerHTML = models
+      .filter((model) => !model.recommended)
+      .map((model) => modelCard(model, selected))
+      .join("");
+  } else {
+    for (const model of models) if (model.downloading) setProgress(model.id, model.progress);
+  }
   $("#welcome").hidden = models.some((model) => model.downloaded);
 
   const active = models.find((model) => model.id === selected && model.downloaded);
   $("#footer-model-name").textContent = active ? active.name : "No model — choose one";
   $("#footer-model").classList.toggle("warning", !active);
+}
+
+function setProgress(id: string, percent: number) {
+  const card = document.querySelector<HTMLElement>(`[data-model="${CSS.escape(id)}"]`);
+  if (!card) return;
+  const bar = card.querySelector<HTMLElement>(".progress");
+  const label = card.querySelector<HTMLElement>(".progress-label");
+  if (bar) bar.style.width = `${percent}%`;
+  if (label) label.textContent = `${percent}%`;
 }
 
 function sizeLabel(megabytes: number) {
