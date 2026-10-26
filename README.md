@@ -76,6 +76,23 @@ window, click the Bolum icon in the menu bar and choose **Settings…**.
 On macOS in dev mode, Microphone and Accessibility access are granted to the app that runs
 the command (Terminal, VS Code, …), not to Bolum.
 
+## Testing
+
+```sh
+npm run check        # everything CI runs on each push: types, web tests, build, clippy, Rust tests
+npm test             # web UI unit tests (Vitest)
+npm run test:rust    # Rust unit tests: catalog, downloads, settings, audio, ONNX decoding, LLM client
+npm run test:smoke   # end to end: download Whisper Tiny, verify its SHA-256, transcribe a fixture
+```
+
+The smoke test needs the network and a 44 MB download, so `test:rust` skips it. It keeps
+its files under `src-tauri/target/tmp/smoke` (or `BOLUM_SMOKE_DIR`) and never touches your
+real models or settings.
+
+[GitHub Actions](.github/workflows/ci.yml) runs the web and Rust suites on macOS and Linux
+for every push to `main`, every `v*` tag and every pull request. After pushes and tags it
+also runs the smoke test against the live model host.
+
 ## Usage
 
 Start Bolum (it stays in the tray; the settings window opens on first run):
