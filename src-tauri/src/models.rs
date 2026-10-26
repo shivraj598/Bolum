@@ -373,7 +373,7 @@ pub async fn download(
     std::fs::create_dir_all(&dir).context("create model directory")?;
     let total: u64 = total_size(model);
     let client = reqwest::Client::builder()
-        .user_agent("bolum/0.1 (+https://github.com/shivraj598/Bolum)")
+        .user_agent(concat!("bolum/", env!("CARGO_PKG_VERSION"), " (+https://github.com/shivraj598/Bolum)"))
         .connect_timeout(std::time::Duration::from_secs(20))
         .read_timeout(std::time::Duration::from_secs(60))
         .build()?;
