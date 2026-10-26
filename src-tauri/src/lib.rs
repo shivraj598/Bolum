@@ -222,7 +222,8 @@ pub fn run() {
                 .lock()
                 .unwrap()
                 .bool("start_hidden");
-            if first_run || !start_hidden {
+            // Dev builds always open the window so `tauri dev` has something to review.
+            if first_run || !start_hidden || cfg!(debug_assertions) {
                 if let Some(window) = app.get_webview_window("main") {
                     let _ = window.show();
                     let _ = window.set_focus();
