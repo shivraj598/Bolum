@@ -8,7 +8,13 @@
     "build": "vite build",
     "preview": "vite preview",
     "tauri": "tauri",
-    "icons": "node scripts/brand.mjs"
+    "icons": "node scripts/brand.mjs",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:rust": "cargo test --manifest-path src-tauri/Cargo.toml",
+    "test:smoke": "cargo test --manifest-path src-tauri/Cargo.toml --test smoke -- --ignored --nocapture",
+    "lint:rust": "cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings",
+    "check": "npm run typecheck && npm test && npm run build && npm run lint:rust && npm run test:rust"
   },
   "dependencies": {
     "@tauri-apps/api": "^2"
