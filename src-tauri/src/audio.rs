@@ -333,3 +333,51 @@ pub fn input_devices() -> Vec<String> {
         })
         .unwrap_or_default()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn resampling_to_the_same_rate_is_a_copy() {
+        let samples = vec![0.1, -0.2, 0.3];
+        assert_eq!(resample(&samples, 16_000, 16_000), samples);
+    }
+
+    #[test]
+    fn resampling_scales_the_length() {
+        let second = vec![0.0f32; 48_000];
+        assert_eq!(resample(&second, 48_000, 16_000).len(), 16_000);
+        assert_eq!(resample(&vec![0.0f32; 44_100], 44_100, 16_000).len(), 16_000);
+    }
+
+    #[test]
+    fn resampling_keeps_a_constant_signal_constant() {
+        let out = resample(&vec![0.5f32; 4_800], 48_000, 16_000);
+        assert!(out.iter().all(|sample| (sample - 0.5).abs() < 1e-6));
+    }
+
+    #[test]
+    fn resampling_interpolates_between_samples() {
+        // Doubling the rate puts a midpoint between each pair.
+        assert_eq!(resample(&[0.0, 1.0], 8_000, 16_000), vec![0.0, 0.5, 1.0, 1.0]);
+    }
+
+    #[test]
+    fn resampling_nothing_gives_nothing() {
+        assert!(resample(&[], 48_000, 16_000).is_empty());
+    }
+
+    #[test]
+    fn mixdown_averages_channels_into_mono() {
+        let stereo = [1.0f32, 0.0, 0.5, 0.5, -1.0, 1.0];
+        assert_eq!(mixdown(&stereo, 2), vec![0.5, 0.5, 0.0]);
+    }
+
+    #[test]
+    fn integer_samples_are_scaled_to_unit_range() {
+        assert_eq!(mixdown(&[i16::MAX], 1), vec![1.0]);
+        assert_eq!(mixdown(&[u16::MAX], 1), vec![1.0]);
+        assert_eq!(mixdown(&[0u16], 1), vec![-1.0]);
+    }
+}
