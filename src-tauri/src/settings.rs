@@ -9,21 +9,34 @@ use std::path::PathBuf;
 use std::sync::{Mutex, OnceLock};
 
 pub fn home() -> PathBuf {
-    PathBuf::from(std::env::var("HOME").unwrap_or_else(|_| "/tmp".into()))
-}
-
-fn xdg(var: &str, fallback: &str) -> PathBuf {
-    std::env::var(var)
+    std::env::var_os("HOME")
+        .or_else(|| std::env::var_os("USERPROFILE"))
         .map(PathBuf::from)
-        .unwrap_or_else(|_| home().join(fallback))
+        .unwrap_or_else(std::env::temp_dir)
 }
 
+/// `$xdg_var` when set (tests and portable setups use it everywhere), else
+/// `%windows_var%` on Windows, else `~/unix_fallback`.
+fn base_dir(xdg_var: &str, windows_var: &str, unix_fallback: &str) -> PathBuf {
+    if let Some(dir) = std::env::var_os(xdg_var) {
+        return dir.into();
+    }
+    if cfg!(windows) {
+        if let Some(dir) = std::env::var_os(windows_var) {
+            return dir.into();
+        }
+    }
+    home().join(unix_fallback)
+}
+
+/// Settings: `~/.config/bolum`, or `%APPDATA%\bolum` on Windows.
 pub fn config_dir() -> PathBuf {
-    xdg("XDG_CONFIG_HOME", ".config").join("bolum")
+    base_dir("XDG_CONFIG_HOME", "APPDATA", ".config").join("bolum")
 }
 
+/// Models and history: `~/.local/share/bolum`, or `%LOCALAPPDATA%\bolum` on Windows.
 pub fn data_dir() -> PathBuf {
-    xdg("XDG_DATA_HOME", ".local/share").join("bolum")
+    base_dir("XDG_DATA_HOME", "LOCALAPPDATA", ".local/share").join("bolum")
 }
 
 pub fn runtime_dir() -> PathBuf {
@@ -46,9 +59,9 @@ pub fn settings_path() -> PathBuf {
 pub fn defaults() -> &'static Value {
     static DEFAULTS: OnceLock<Value> = OnceLock::new();
     DEFAULTS.get_or_init(|| {
-        // Pasting is instant everywhere on macOS, where synthetic typing is
-        // slow in some editors; Linux typing tools handle Unicode directly.
-        let injection = if cfg!(target_os = "macos") { "clipboard" } else { "type" };
+        // Pasting is instant everywhere on macOS and Windows, where synthetic
+        // typing is slow in some editors; Linux typing tools handle Unicode directly.
+        let injection = if cfg!(any(target_os = "macos", windows)) { "clipboard" } else { "type" };
         json!({
             "hotkey": "ctrl+alt+space",
             "push_to_talk": false,
