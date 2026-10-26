@@ -86,3 +86,22 @@ pub fn is_control_command(argument: &str) -> bool {
         "toggle" | "start" | "stop" | "cancel" | "status" | "quit"
     )
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn recognises_every_control_command() {
+        for command in ["toggle", "start", "stop", "cancel", "status", "quit"] {
+            assert!(is_control_command(command), "{command} should be a control command");
+        }
+    }
+
+    #[test]
+    fn other_arguments_start_the_app() {
+        for argument in ["", "--help", "Toggle", "open", "toggle "] {
+            assert!(!is_control_command(argument), "{argument:?} should not be a control command");
+        }
+    }
+}
