@@ -266,7 +266,7 @@ const POST_PROCESS_GROUPS: Group[] = [
 ];
 
 async function renderGroups(container: HTMLElement, groups: Group[]) {
-  container.innerHTML = "";
+  const fragment = document.createDocumentFragment();
   for (const group of groups) {
     const wrapper = document.createElement("div");
     wrapper.className = "group";
@@ -275,8 +275,9 @@ async function renderGroups(container: HTMLElement, groups: Group[]) {
     body.className = "group-body";
     for (const field of group.fields) body.append(await renderField(field));
     wrapper.append(body);
-    container.append(wrapper);
+    fragment.append(wrapper);
   }
+  container.replaceChildren(fragment);
 }
 
 async function renderField(field: Field): Promise<HTMLElement> {
@@ -727,11 +728,13 @@ async function boot() {
   settings = await api.getSettings();
   applyTheme();
   setPhase(await api.getStatus());
-  await renderGroups($("#general-groups"), GENERAL_GROUPS);
-  await renderGroups($("#advanced-groups"), ADVANCED_GROUPS);
-  await renderGroups($("#post-process-groups"), POST_PROCESS_GROUPS);
-  await loadModels();
-  await loadHistory();
+  await Promise.all([
+    renderGroups($("#general-groups"), GENERAL_GROUPS),
+    renderGroups($("#advanced-groups"), ADVANCED_GROUPS),
+    renderGroups($("#post-process-groups"), POST_PROCESS_GROUPS),
+    loadModels(),
+    loadHistory(),
+  ]);
   $("#version").textContent = await getVersion().catch(() => "unknown");
 
   let page = "general";
