@@ -1,5 +1,7 @@
 # Bolum
 
+<p align="center"><img src="branding/logo-full.svg" alt="bolum" width="220" /></p>
+
 Push-to-talk dictation for macOS and Linux desktops. Press a shortcut (or run `bolum toggle`
 from a compositor keybinding), speak, and the transcript is typed into whatever window has
 focus.
@@ -127,6 +129,12 @@ the ONNX conversions published by [istupakov](https://huggingface.co/istupakov) 
 [Parakeet v3](https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3) and
 [Canary](https://huggingface.co/nvidia/canary-180m-flash) checkpoints (CC-BY-4.0).
 
+## Branding
+
+Logos and icons live in [`branding/`](branding/). Replace a file there and run
+`npm run icons` to regenerate the app icon set and the menu-bar icons. The
+[branding guide](branding/README.md) lists which file goes where.
+
 ## How it works
 
 ```
@@ -144,11 +152,12 @@ shortcut / `bolum toggle`
 - `src-tauri/src/pipeline.rs` — the dictation state machine
 - `src-tauri/src/ipc.rs` — the control socket
 - `src/` — the settings window and overlay (vanilla TypeScript + Vite)
+- `branding/` — logo, app-icon and menu-bar icon sources
 
 ## Credits
 
-- [Handy](https://github.com/cjpais/Handy) (MIT) for the product shape and the
-  model-download strategy this project follows.
+- [Handy](https://github.com/cjpais/Handy) (MIT) for the product shape, the settings
+  layout and the model-download strategy this project follows.
 - [whisper.cpp](https://github.com/ggml-org/whisper.cpp) and
   [whisper-rs](https://github.com/tazz4843/whisper-rs) for local Whisper inference.
 - [onnx-asr](https://github.com/istupakov/onnx-asr) for the NVIDIA ONNX export contracts.
