@@ -225,3 +225,73 @@ impl Settings {
         Self(Mutex::new(SettingsStore::load()))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn store(value: Value) -> SettingsStore {
+        SettingsStore {
+            value: value.as_object().cloned().expect("an object"),
+        }
+    }
+
+    #[test]
+    fn dotted_keys_write_nested_objects() {
+        let mut settings = store(json!({}));
+        settings.set_quiet("post_process.enabled", json!(true));
+        assert_eq!(settings.json(), json!({ "post_process": { "enabled": true } }));
+    }
+
+    #[test]
+    fn a_non_object_in_the_way_is_replaced() {
+        let mut settings = store(json!({ "post_process": "hand-edited" }));
+        settings.set_quiet("post_process.model", json!("llama3.2"));
+        assert_eq!(settings.json(), json!({ "post_process": { "model": "llama3.2" } }));
+    }
+
+    #[test]
+    fn missing_keys_fall_back_to_defaults() {
+        let settings = store(json!({}));
+        assert_eq!(settings.str("model"), "whisper-base.en");
+        assert_eq!(settings.str("theme"), "system");
+        assert_eq!(settings.str("hotkey"), "ctrl+alt+space");
+        assert!(settings.bool("show_overlay"));
+        assert_eq!(settings.usize("history_limit"), 200);
+        assert!(!settings.bool("post_process.enabled"));
+    }
+
+    #[test]
+    fn stored_values_win_over_defaults() {
+        let settings = store(json!({ "model": "whisper-tiny.en", "history_limit": 5, "push_to_talk": true }));
+        assert_eq!(settings.str("model"), "whisper-tiny.en");
+        assert_eq!(settings.usize("history_limit"), 5);
+        assert!(settings.bool("push_to_talk"));
+    }
+
+    #[test]
+    fn values_of_the_wrong_type_fall_back_to_defaults() {
+        let settings = store(json!({ "history_limit": "lots", "show_overlay": "yes" }));
+        assert_eq!(settings.usize("history_limit"), 200);
+        assert!(settings.bool("show_overlay"));
+    }
+
+    #[test]
+    fn sub_merges_stored_fields_over_defaults() {
+        let settings = store(json!({ "post_process": { "enabled": true } }));
+        let merged = settings.sub("post_process");
+        assert_eq!(merged["enabled"], json!(true));
+        assert_eq!(merged["model"], json!("llama3.2"));
+        assert_eq!(merged["base_url"], json!("http://localhost:11434/v1"));
+    }
+
+    #[test]
+    fn opt_str_treats_empty_strings_as_unset() {
+        assert_eq!(store(json!({ "microphone": "" })).opt_str("microphone"), None);
+        assert_eq!(store(json!({ "microphone": null })).opt_str("microphone"), None);
+        assert_eq!(
+            store(json!({ "microphone": "External Microphone" })).opt_str("microphone"),
+            Some("External Microphone".into())
+        );
+    }
+}
