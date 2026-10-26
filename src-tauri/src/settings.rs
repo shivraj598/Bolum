@@ -27,7 +27,9 @@ pub fn data_dir() -> PathBuf {
 }
 
 pub fn runtime_dir() -> PathBuf {
+    // macOS has no XDG_RUNTIME_DIR; TMPDIR is its private per-user equivalent.
     std::env::var("XDG_RUNTIME_DIR")
+        .or_else(|_| std::env::var("TMPDIR"))
         .map(PathBuf::from)
         .unwrap_or_else(|_| PathBuf::from("/tmp"))
 }
@@ -44,6 +46,9 @@ pub fn settings_path() -> PathBuf {
 pub fn defaults() -> &'static Value {
     static DEFAULTS: OnceLock<Value> = OnceLock::new();
     DEFAULTS.get_or_init(|| {
+        // Pasting is instant everywhere on macOS, where synthetic typing is
+        // slow in some editors; Linux typing tools handle Unicode directly.
+        let injection = if cfg!(target_os = "macos") { "clipboard" } else { "type" };
         json!({
             "hotkey": "ctrl+alt+space",
             "push_to_talk": false,
@@ -51,7 +56,7 @@ pub fn defaults() -> &'static Value {
             "model": "whisper-base.en",
             "language": "auto",
             "translate_to": "",
-            "injection": "type",
+            "injection": injection,
             "typing_tool": "auto",
             "append_trailing_space": true,
             "auto_submit": false,

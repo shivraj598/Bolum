@@ -30,6 +30,12 @@ sha2 = "0.11"
 whisper-rs = "0.16"
 ort = { version = "=2.0.0-rc.14", features = ["download-binaries"] }
 
+[target.'cfg(target_os = "macos")'.dependencies]
+# Native key events through CGEvent; macOS has no wtype/xdotool equivalent.
+enigo = { version = "0.6", default-features = false }
+# Run whisper.cpp on the Apple GPU.
+whisper-rs = { version = "0.16", features = ["metal"] }
+
 [profile.release]
 lto = true
 codegen-units = 1

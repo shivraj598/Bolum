@@ -2,7 +2,9 @@
 //!
 //! Mirrors Handy's strategy: typing tools are detected on PATH (`wtype`,
 //! `kwtype`, `dotool`, `ydotool`, `xdotool`) and the transcript is either typed
-//! directly or written to the clipboard first and then pasted.
+//! directly or written to the clipboard first and then pasted. On macOS the
+//! built-in `native` tool posts CGEvents instead, which needs the
+//! Accessibility permission.
 
 use anyhow::{anyhow, Result};
 use std::io::Write;
@@ -10,7 +12,10 @@ use std::process::{Command, Stdio};
 
 use crate::settings::SettingsStore;
 
+#[cfg(not(target_os = "macos"))]
 const TOOLS: [&str; 5] = ["wtype", "kwtype", "dotool", "ydotool", "xdotool"];
+#[cfg(target_os = "macos")]
+const TOOLS: [&str; 1] = ["native"];
 
 pub fn which(program: &str) -> Option<std::path::PathBuf> {
     let paths = std::env::var("PATH").unwrap_or_default();
@@ -21,7 +26,10 @@ pub fn which(program: &str) -> Option<std::path::PathBuf> {
 }
 
 pub fn available_tools() -> Vec<&'static str> {
-    TOOLS.into_iter().filter(|t| which(t).is_some()).collect()
+    TOOLS
+        .into_iter()
+        .filter(|t| *t == "native" || which(t).is_some())
+        .collect()
 }
 
 fn resolve_tool(settings: &SettingsStore) -> Result<&'static str> {
@@ -78,11 +86,16 @@ fn type_text(tool: &str, text: &str) -> Result<()> {
         // dotool treats a newline in its command stream as Enter.
         "dotool" => run_with_stdin("dotool", &[], &format!("type {}\n", text.replace('\n', " "))),
         "xdotool" => run("xdotool", &["type", "--clearmodifiers", "--delay", "2", "--", text]),
+        #[cfg(target_os = "macos")]
+        "native" => native::type_text(text),
         other => Err(anyhow!("cannot type with '{other}'")),
     }
 }
 
 fn write_clipboard(text: &str) -> Result<()> {
+    #[cfg(target_os = "macos")]
+    return native::write_clipboard(text);
+    #[allow(unreachable_code)]
     if which("wl-copy").is_some() && std::env::var("WAYLAND_DISPLAY").is_ok() {
         return run_with_stdin("wl-copy", &[], text);
     }
@@ -107,6 +120,8 @@ fn send_key(tool: &str, key: &str) -> Result<()> {
         ("ydotool", "enter") => run("ydotool", &["key", "28:1", "28:0"]),
         ("dotool", "paste") => run_with_stdin("dotool", &[], "key ctrl+v\n"),
         ("dotool", "enter") => run_with_stdin("dotool", &[], "key enter\n"),
+        #[cfg(target_os = "macos")]
+        ("native", key) => native::send_key(key),
         (tool, key) => Err(anyhow!("{tool} cannot send {key}")),
     }
 }
@@ -149,5 +164,72 @@ pub fn inject(text: &str, settings: &SettingsStore) -> Result<()> {
             }
             Ok(())
         }
+    }
+}
+
+/// Prompts for the Accessibility permission up front so the first dictation
+/// is not the moment macOS asks for it.
+pub fn request_permissions() -> Result<()> {
+    #[cfg(target_os = "macos")]
+    native::request_permissions()?;
+    Ok(())
+}
+
+#[cfg(target_os = "macos")]
+mod native {
+    use anyhow::{anyhow, Result};
+    use enigo::{Direction, Enigo, Key, Keyboard, Settings};
+    use std::io::Write;
+    use std::process::{Command, Stdio};
+
+    fn connect() -> Result<Enigo> {
+        Enigo::new(&Settings::default()).map_err(|err| {
+            anyhow!(
+                "{err}; allow Bolum under System Settings → Privacy & Security → Accessibility"
+            )
+        })
+    }
+
+    pub fn request_permissions() -> Result<()> {
+        connect().map(drop)
+    }
+
+    pub fn type_text(text: &str) -> Result<()> {
+        connect()?
+            .text(text)
+            .map_err(|err| anyhow!("typing failed: {err}"))
+    }
+
+    pub fn send_key(key: &str) -> Result<()> {
+        let mut enigo = connect()?;
+        match key {
+            "paste" => {
+                enigo.key(Key::Meta, Direction::Press)?;
+                // Always release Command, even when the V press fails.
+                let pressed = enigo.key(Key::Unicode('v'), Direction::Click);
+                enigo.key(Key::Meta, Direction::Release)?;
+                pressed?;
+            }
+            "enter" => enigo.key(Key::Return, Direction::Click)?,
+            other => return Err(anyhow!("cannot send {other}")),
+        }
+        Ok(())
+    }
+
+    /// `pbcopy` decodes stdin with the locale, which is unset for apps
+    /// launched from Finder, so pin UTF-8 or accents arrive garbled.
+    pub fn write_clipboard(text: &str) -> Result<()> {
+        let mut child = Command::new("/usr/bin/pbcopy")
+            .env("LANG", "en_US.UTF-8")
+            .stdin(Stdio::piped())
+            .spawn()?;
+        if let Some(pipe) = child.stdin.as_mut() {
+            pipe.write_all(text.as_bytes())?;
+        }
+        let status = child.wait()?;
+        if !status.success() {
+            return Err(anyhow!("pbcopy exited with {status}"));
+        }
+        Ok(())
     }
 }
