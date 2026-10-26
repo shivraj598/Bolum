@@ -62,6 +62,7 @@ pub fn defaults() -> &'static Value {
             "auto_submit": false,
             "show_overlay": true,
             "start_hidden": true,
+            "theme": "system",
             "history_limit": 200,
             "post_process": {
                 "enabled": false,
