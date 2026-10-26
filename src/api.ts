@@ -6,6 +6,9 @@ export type ModelInfo = {
   engine: string;
   description: string;
   languages: string;
+  accuracy: number;
+  speed: number;
+  recommended: boolean;
   size_mb: number;
   downloaded: boolean;
   downloading: boolean;
