@@ -2,9 +2,9 @@
 //!
 //! Mirrors Handy's strategy: typing tools are detected on PATH (`wtype`,
 //! `kwtype`, `dotool`, `ydotool`, `xdotool`) and the transcript is either typed
-//! directly or written to the clipboard first and then pasted. On macOS the
-//! built-in `native` tool posts CGEvents instead, which needs the
-//! Accessibility permission.
+//! directly or written to the clipboard first and then pasted. On macOS and
+//! Windows the built-in `native` tool sends key events instead (CGEvent, which
+//! needs the Accessibility permission, and SendInput).
 
 use anyhow::{anyhow, Result};
 use std::io::Write;
@@ -12,16 +12,15 @@ use std::process::{Command, Stdio};
 
 use crate::settings::SettingsStore;
 
-#[cfg(not(target_os = "macos"))]
+#[cfg(not(any(target_os = "macos", windows)))]
 const TOOLS: [&str; 5] = ["wtype", "kwtype", "dotool", "ydotool", "xdotool"];
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", windows))]
 const TOOLS: [&str; 1] = ["native"];
 
 pub fn which(program: &str) -> Option<std::path::PathBuf> {
-    let paths = std::env::var("PATH").unwrap_or_default();
-    paths
-        .split(':')
-        .map(|dir| std::path::Path::new(dir).join(program))
+    let paths = std::env::var_os("PATH")?;
+    std::env::split_paths(&paths)
+        .map(|dir| dir.join(program))
         .find(|candidate| candidate.is_file())
 }
 
@@ -86,14 +85,14 @@ fn type_text(tool: &str, text: &str) -> Result<()> {
         // dotool treats a newline in its command stream as Enter.
         "dotool" => run_with_stdin("dotool", &[], &format!("type {}\n", text.replace('\n', " "))),
         "xdotool" => run("xdotool", &["type", "--clearmodifiers", "--delay", "2", "--", text]),
-        #[cfg(target_os = "macos")]
+        #[cfg(any(target_os = "macos", windows))]
         "native" => native::type_text(text),
         other => Err(anyhow!("cannot type with '{other}'")),
     }
 }
 
 fn write_clipboard(text: &str) -> Result<()> {
-    #[cfg(target_os = "macos")]
+    #[cfg(any(target_os = "macos", windows))]
     return native::write_clipboard(text);
     #[allow(unreachable_code)]
     if which("wl-copy").is_some() && std::env::var("WAYLAND_DISPLAY").is_ok() {
@@ -120,7 +119,7 @@ fn send_key(tool: &str, key: &str) -> Result<()> {
         ("ydotool", "enter") => run("ydotool", &["key", "28:1", "28:0"]),
         ("dotool", "paste") => run_with_stdin("dotool", &[], "key ctrl+v\n"),
         ("dotool", "enter") => run_with_stdin("dotool", &[], "key enter\n"),
-        #[cfg(target_os = "macos")]
+        #[cfg(any(target_os = "macos", windows))]
         ("native", key) => native::send_key(key),
         (tool, key) => Err(anyhow!("{tool} cannot send {key}")),
     }
@@ -175,21 +174,28 @@ pub fn request_permissions() -> Result<()> {
     Ok(())
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", windows))]
 mod native {
     use anyhow::{anyhow, Result};
     use enigo::{Direction, Enigo, Key, Keyboard, Settings};
-    use std::io::Write;
-    use std::process::{Command, Stdio};
+
+    /// The modifier that pastes: Command on macOS, Control on Windows.
+    #[cfg(target_os = "macos")]
+    const PASTE_MODIFIER: Key = Key::Meta;
+    #[cfg(windows)]
+    const PASTE_MODIFIER: Key = Key::Control;
 
     fn connect() -> Result<Enigo> {
         Enigo::new(&Settings::default()).map_err(|err| {
-            anyhow!(
-                "{err}; allow Bolum under System Settings → Privacy & Security → Accessibility"
-            )
+            if cfg!(target_os = "macos") {
+                anyhow!("{err}; allow Bolum under System Settings → Privacy & Security → Accessibility")
+            } else {
+                anyhow!("{err}")
+            }
         })
     }
 
+    #[cfg(target_os = "macos")]
     pub fn request_permissions() -> Result<()> {
         connect().map(drop)
     }
@@ -204,10 +210,10 @@ mod native {
         let mut enigo = connect()?;
         match key {
             "paste" => {
-                enigo.key(Key::Meta, Direction::Press)?;
-                // Always release Command, even when the V press fails.
+                enigo.key(PASTE_MODIFIER, Direction::Press)?;
+                // Always release the modifier, even when the V press fails.
                 let pressed = enigo.key(Key::Unicode('v'), Direction::Click);
-                enigo.key(Key::Meta, Direction::Release)?;
+                enigo.key(PASTE_MODIFIER, Direction::Release)?;
                 pressed?;
             }
             "enter" => enigo.key(Key::Return, Direction::Click)?,
@@ -218,7 +224,11 @@ mod native {
 
     /// `pbcopy` decodes stdin with the locale, which is unset for apps
     /// launched from Finder, so pin UTF-8 or accents arrive garbled.
+    #[cfg(target_os = "macos")]
     pub fn write_clipboard(text: &str) -> Result<()> {
+        use std::io::Write;
+        use std::process::{Command, Stdio};
+
         let mut child = Command::new("/usr/bin/pbcopy")
             .env("LANG", "en_US.UTF-8")
             .stdin(Stdio::piped())
@@ -231,5 +241,12 @@ mod native {
             return Err(anyhow!("pbcopy exited with {status}"));
         }
         Ok(())
+    }
+
+    #[cfg(windows)]
+    pub fn write_clipboard(text: &str) -> Result<()> {
+        arboard::Clipboard::new()
+            .and_then(|mut clipboard| clipboard.set_text(text))
+            .map_err(|err| anyhow!("clipboard: {err}"))
     }
 }

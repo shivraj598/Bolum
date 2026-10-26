@@ -36,6 +36,11 @@ enigo = { version = "0.6", default-features = false }
 # Run whisper.cpp on the Apple GPU.
 whisper-rs = { version = "0.16", features = ["metal"] }
 
+[target.'cfg(windows)'.dependencies]
+# SendInput typing and paste, and the Win32 clipboard.
+enigo = { version = "0.6", default-features = false }
+arboard = { version = "3", default-features = false }
+
 [dev-dependencies]
 # Builds the `reqwest::Response` values the resume tests check.
 http = "1"
