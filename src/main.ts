@@ -10,6 +10,7 @@ import {
   type Phase,
   type Settings,
 } from "./api";
+import { acceleratorKey, escapeHtml, hintHtml, isUsableShortcut, keycaps, scoreSteps, sizeLabel } from "./format";
 
 const $ = <T extends HTMLElement>(selector: string) =>
   document.querySelector(selector) as T;
@@ -385,38 +386,6 @@ function applyTheme() {
 
 /* -------------------------------------------------------------- shortcut */
 
-const MODIFIER_LABEL: Record<string, string> = IS_MAC
-  ? { ctrl: "⌃", alt: "⌥", shift: "⇧", super: "⌘" }
-  : { ctrl: "Ctrl", alt: "Alt", shift: "Shift", super: "Super" };
-
-const MODIFIER_ALIAS: Record<string, string> = {
-  control: "ctrl",
-  option: "alt",
-  cmd: "super",
-  command: "super",
-  meta: "super",
-};
-
-/** Splits an accelerator such as `ctrl+alt+space` into display keycaps. */
-function keycaps(accelerator: string): string[] {
-  return accelerator
-    .split("+")
-    .map((part) => part.trim().toLowerCase())
-    .filter(Boolean)
-    .map((part) => MODIFIER_ALIAS[part] ?? part)
-    .map((part) =>
-      MODIFIER_LABEL[part] ?? (part.length === 1 ? part.toUpperCase() : part[0].toUpperCase() + part.slice(1)),
-    );
-}
-
-/** Maps a physical key to the accelerator name the global-shortcut plugin parses. */
-function acceleratorKey(code: string): string | null {
-  if (/^(Control|Alt|Shift|Meta|OS)(Left|Right)?$/.test(code)) return null;
-  if (/^Key[A-Z]$/.test(code)) return code.slice(3).toLowerCase();
-  if (/^Digit\d$/.test(code)) return code.slice(5);
-  return code.toLowerCase();
-}
-
 function shortcutControl(key: string, current: string): HTMLElement {
   const button = document.createElement("button");
   button.type = "button";
@@ -424,7 +393,7 @@ function shortcutControl(key: string, current: string): HTMLElement {
   button.setAttribute("aria-label", "Change shortcut");
   const show = (accelerator: string) => {
     button.innerHTML = accelerator
-      ? keycaps(accelerator).map((cap) => `<kbd>${escapeHtml(cap)}</kbd>`).join("")
+      ? keycaps(accelerator, IS_MAC).map((cap) => `<kbd>${escapeHtml(cap)}</kbd>`).join("")
       : '<span class="muted">Not set</span>';
   };
   show(current);
@@ -449,9 +418,7 @@ function shortcutControl(key: string, current: string): HTMLElement {
       }
       const name = acceleratorKey(event.code);
       if (!name) return;
-      // Shift alone would swallow ordinary capitals system-wide.
-      const chorded = modifiers.some((modifier) => modifier !== "shift");
-      if (!chorded && !/^f\d+$/.test(name)) {
+      if (!isUsableShortcut(modifiers, name)) {
         button.textContent = IS_MAC ? "Include ⌃, ⌥ or ⌘…" : "Include Ctrl, Alt or Super…";
         return;
       }
@@ -540,13 +507,9 @@ function setProgress(id: string, percent: number) {
   if (label) label.textContent = `${percent}%`;
 }
 
-function sizeLabel(megabytes: number) {
-  return megabytes >= 1000 ? `${(megabytes / 1000).toFixed(1)} GB` : `${megabytes} MB`;
-}
-
 /** A five-step meter, easier to compare at a glance than a continuous bar. */
 function score(label: string, value: number) {
-  const filled = Math.max(1, Math.round(value * 5));
+  const filled = scoreSteps(value);
   const steps = Array.from({ length: 5 }, (_, index) => `<i${index < filled ? ' class="on"' : ""}></i>`).join("");
   return `<span class="score" title="${label}: ${filled} of 5"><span>${label}</span><span class="steps">${steps}</span></span>`;
 }
@@ -710,19 +673,6 @@ $("#dictate").addEventListener("click", async () => {
     notice(String(error));
   }
 });
-
-function escapeHtml(value: string) {
-  return value.replace(
-    /[&<>"']/g,
-    (character) =>
-      ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[character]!,
-  );
-}
-
-/** Escapes a hint and renders `backticked` spans as code. */
-function hintHtml(value: string) {
-  return escapeHtml(value).replace(/`([^`]+)`/g, "<code>$1</code>");
-}
 
 async function boot() {
   settings = await api.getSettings();
