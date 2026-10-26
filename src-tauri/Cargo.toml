@@ -36,6 +36,10 @@ enigo = { version = "0.6", default-features = false }
 # Run whisper.cpp on the Apple GPU.
 whisper-rs = { version = "0.16", features = ["metal"] }
 
+[dev-dependencies]
+# Builds the `reqwest::Response` values the resume tests check.
+http = "1"
+
 [profile.release]
 lto = true
 codegen-units = 1
