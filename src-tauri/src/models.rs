@@ -7,14 +7,12 @@
 use anyhow::{anyhow, Context, Result};
 use futures_util::StreamExt;
 use serde::Serialize;
-use serde_json::json;
 use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 use std::io::{Read, Write};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
-use tauri::{AppHandle, Emitter};
 
 use crate::settings::models_dir;
 
@@ -365,10 +363,11 @@ impl Downloads {
 }
 
 /// Downloads every missing file of `model`, verifying SHA-256 before renaming.
+/// `on_progress` receives the bytes received so far and the model's total.
 pub async fn download(
-    app: &AppHandle,
     model: &'static CatalogModel,
     cancel: Arc<AtomicBool>,
+    on_progress: impl Fn(u64, u64),
 ) -> Result<()> {
     let dir = model_dir(model.id);
     std::fs::create_dir_all(&dir).context("create model directory")?;
@@ -430,7 +429,7 @@ pub async fn download(
             let chunk = chunk?;
             out.write_all(&chunk)?;
             received += chunk.len() as u64;
-            let _ = app.emit("model-progress", json!({ "id": model.id, "received": done_before + received, "total": total }));
+            on_progress(done_before + received, total);
         }
         out.flush()?;
         drop(out);

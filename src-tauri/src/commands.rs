@@ -1,8 +1,8 @@
 //! Tauri commands exposed to the settings window.
 
-use serde_json::Value;
+use serde_json::{json, Value};
 use std::sync::atomic::Ordering;
-use tauri::{AppHandle, Manager, State};
+use tauri::{AppHandle, Emitter, Manager, State};
 
 use crate::history;
 use crate::models::{self, ModelStatus};
@@ -59,7 +59,10 @@ pub async fn download_model(app: AppHandle, state: State<'_, AppState>, id: Stri
         .downloads
         .start(&id)
         .ok_or_else(|| format!("'{id}' is already downloading"))?;
-    let result = models::download(&app, model, cancel).await;
+    let result = models::download(model, cancel, |received, total| {
+        let _ = app.emit("model-progress", json!({ "id": model.id, "received": received, "total": total }));
+    })
+    .await;
     state.downloads.finish(&id);
     result.map_err(message)
 }
