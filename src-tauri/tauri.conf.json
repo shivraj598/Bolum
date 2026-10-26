@@ -76,7 +76,7 @@
     "shortDescription": "Push-to-talk dictation",
     "longDescription": "Bolum turns speech into text in any application. Press a shortcut, speak, and the transcript is typed into the focused window. Transcription runs locally with Whisper or NVIDIA Parakeet/Canary ONNX engines.",
     "macOS": {
-      "minimumSystemVersion": "11.0"
+      "minimumSystemVersion": "13.4"
     }
   }
 }
