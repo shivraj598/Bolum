@@ -7,48 +7,149 @@
     <link rel="stylesheet" href="/src/style.css" />
   </head>
   <body>
-    <header>
-      <h1>Bolum</h1>
-      <span id="status-pill" class="pill idle">idle</span>
-      <div id="meter"><i id="level-bar"></i></div>
-      <button id="dictate">Dictate</button>
-    </header>
+    <div class="app">
+      <aside class="sidebar">
+        <div class="brand">
+          <svg class="logo" viewBox="0 0 32 32" aria-hidden="true">
+            <rect width="32" height="32" rx="9" />
+            <path d="M9 13v6M13 10v12M17 7v18M21 11v10M25 14v4" />
+          </svg>
+          <span>Bolum</span>
+        </div>
+        <nav id="nav">
+          <button data-page="general" class="active">
+            <svg viewBox="0 0 24 24"><rect x="9" y="2" width="6" height="12" rx="3" /><path d="M5 10a7 7 0 0 0 14 0M12 17v5" /></svg>
+            <span>General</span>
+          </button>
+          <button data-page="models">
+            <svg viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="2" /><rect x="9" y="9" width="6" height="6" rx="1" /><path d="M9 2v3M15 2v3M9 19v3M15 19v3M2 9h3M2 15h3M19 9h3M19 15h3" /></svg>
+            <span>Models</span>
+          </button>
+          <button data-page="history">
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg>
+            <span>History</span>
+          </button>
+          <button data-page="advanced">
+            <svg viewBox="0 0 24 24"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0" /><circle cx="16" cy="6" r="2" /><circle cx="10" cy="12" r="2" /><circle cx="18" cy="18" r="2" /></svg>
+            <span>Advanced</span>
+          </button>
+          <button data-page="post-processing">
+            <svg viewBox="0 0 24 24"><path d="M11 3l1.8 4.9L17.7 9.7l-4.9 1.8L11 16.4 9.2 11.5 4.3 9.7l4.9-1.8z" /><path d="M18 15l.8 2.2L21 18l-2.2.8L18 21l-.8-2.2L15 18l2.2-.8z" /></svg>
+            <span>Post-processing</span>
+          </button>
+          <button data-page="about">
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" /><path d="M12 11v5M12 8h.01" /></svg>
+            <span>About</span>
+          </button>
+        </nav>
+      </aside>
 
-    <nav id="tabs">
-      <button data-tab="dictation" class="active">Dictation</button>
-      <button data-tab="models">Models</button>
-      <button data-tab="history">History</button>
-      <button data-tab="advanced">Advanced</button>
-    </nav>
+      <div class="workspace">
+        <main id="content">
+          <section data-page="general">
+            <header class="page-head">
+              <h1>General</h1>
+              <p>Press the shortcut, speak, and the transcript is typed into the focused app.</p>
+            </header>
+            <div id="general-groups"></div>
+            <div class="group">
+              <h2 class="group-title">Last transcript</h2>
+              <p id="last-transcript" class="transcript muted">Nothing yet.</p>
+            </div>
+          </section>
 
-    <main>
-      <section id="tab-dictation">
-        <div id="dictation-fields"></div>
-        <p class="hint">
-          Compose a keybinding to <code>bolum toggle</code> on Hyprland or another Wayland
-          compositor; the shortcut above is used when the desktop grants one. On macOS, allow
-          Bolum under Privacy &amp; Security → Accessibility so it can insert text.
-        </p>
-        <h2>Last transcript</h2>
-        <p id="last-transcript" class="transcript hint">Nothing yet.</p>
-      </section>
+          <section data-page="models" hidden>
+            <header class="page-head">
+              <h1>Models</h1>
+              <p>Everything runs on this computer. Smaller models are faster; larger ones are more accurate.</p>
+            </header>
+            <div id="welcome" class="banner" hidden>
+              <strong>Welcome to Bolum.</strong>
+              Download a model to start dictating. Whisper Base (English) is a quick 60 MB download.
+            </div>
+            <div class="group">
+              <h2 class="group-title">Recommended</h2>
+              <div id="models-recommended" class="model-list"></div>
+            </div>
+            <div class="group">
+              <h2 class="group-title">More models</h2>
+              <div id="models-more" class="model-list"></div>
+            </div>
+            <p class="legend muted">Accuracy and speed are relative guides, not benchmarks.</p>
+          </section>
 
-      <section id="tab-models" hidden>
-        <ul id="model-list"></ul>
-      </section>
+          <section data-page="history" hidden>
+            <header class="page-head">
+              <h1>History</h1>
+              <p>Every dictation is kept on this computer.</p>
+            </header>
+            <div id="history-list" class="history"></div>
+          </section>
 
-      <section id="tab-history" hidden>
-        <ul id="history-list"></ul>
-      </section>
+          <section data-page="advanced" hidden>
+            <header class="page-head">
+              <h1>Advanced</h1>
+              <p>Appearance, text delivery and translation.</p>
+            </header>
+            <div id="advanced-groups"></div>
+          </section>
 
-      <section id="tab-advanced" hidden>
-        <h2>Post-processing</h2>
-        <p class="hint">
-          Runs the transcript through an OpenAI-compatible chat endpoint before it is typed.
-        </p>
-        <div id="post-process-fields"></div>
-      </section>
-    </main>
+          <section data-page="post-processing" hidden>
+            <header class="page-head">
+              <h1>Post-processing</h1>
+              <p>Run the transcript through an OpenAI-compatible chat endpoint before it is typed.</p>
+            </header>
+            <div id="post-process-groups"></div>
+          </section>
+
+          <section data-page="about" hidden>
+            <header class="page-head">
+              <h1>About</h1>
+              <p>Push-to-talk dictation with local Whisper and NVIDIA engines.</p>
+            </header>
+            <div class="group">
+              <div class="group-body">
+                <div class="setting">
+                  <div class="setting-text"><span class="setting-label">Version</span></div>
+                  <span id="version" class="muted">—</span>
+                </div>
+                <div class="setting">
+                  <div class="setting-text">
+                    <span class="setting-label">Command line</span>
+                    <span class="setting-hint">
+                      Bind <code>bolum toggle</code> in Hyprland or another Wayland compositor. It also
+                      accepts <code>start</code>, <code>stop</code>, <code>cancel</code> and <code>status</code>.
+                    </span>
+                  </div>
+                </div>
+                <div class="setting">
+                  <div class="setting-text">
+                    <span class="setting-label">Permissions</span>
+                    <span class="setting-hint">
+                      On macOS, allow Bolum under Privacy &amp; Security → Microphone and → Accessibility so
+                      it can listen and insert text.
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+        </main>
+
+        <footer class="footer">
+          <button id="footer-model" class="footer-model" title="Choose a model">
+            <svg viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="2" /><rect x="9" y="9" width="6" height="6" rx="1" /></svg>
+            <span id="footer-model-name">No model</span>
+          </button>
+          <div class="footer-status">
+            <span id="status-dot" class="status-dot idle"></span>
+            <span id="status-label">Ready</span>
+            <div id="meter" class="meter"><i id="level-bar"></i></div>
+          </div>
+          <button id="dictate" class="button primary">Dictate</button>
+        </footer>
+      </div>
+    </div>
 
     <div id="toasts"></div>
     <script type="module" src="/src/main.ts"></script>
