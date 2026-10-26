@@ -159,11 +159,14 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           pattern: bundle-*
-          path: release
+          path: artifacts
           merge-multiple: true
-      - name: Write checksums
-        working-directory: release
+      # The Linux artifact keeps its appimage/ and deb/ folders; releases want flat files.
+      - name: Collect installers and write checksums
         run: |
+          mkdir release
+          find artifacts -type f -exec mv {} release/ \;
+          cd release
           sha256sum * > SHA256SUMS.txt
           cat SHA256SUMS.txt
 
