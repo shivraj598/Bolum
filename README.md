@@ -55,11 +55,24 @@ sudo pacman -S base-devel cmake webkit2gtk-4.1 gtk3 libappindicator-gtk3 librsvg
 ## Build and run
 
 ```sh
-npm install
-npm run tauri build      # release bundles in src-tauri/target/release/bundle
-                         #   macOS: Bolum.app + .dmg   Linux: AppImage + .deb
-npm run tauri dev        # development
+npm ci --include=dev                  # install from the lockfile, including the Tauri CLI
+NODE_ENV=development npm run tauri dev
+npm run tauri build                   # release bundles in src-tauri/target/release/bundle
+                                      #   macOS: Bolum.app + .dmg   Linux: AppImage + .deb
 ```
+
+`tauri dev` starts Vite on `http://localhost:1420` and launches the app. The web UI reloads
+on save, and Rust changes rebuild and relaunch the app. The first run compiles whisper.cpp
+and ONNX Runtime, so expect it to take a few minutes. Add `RUST_LOG=debug RUST_BACKTRACE=1`
+for verbose logs. `--include=dev` and `NODE_ENV=development` are needed only if your shell
+exports `NODE_ENV=production`, which makes npm skip dev dependencies.
+
+Bolum has no Dock icon. Dev builds open the main window on launch. Release builds stay
+hidden in the menu bar unless it is the first run or "start hidden" is off; to open the
+window, click the Bolum icon in the menu bar and choose **Settings…**.
+
+On macOS in dev mode, Microphone and Accessibility access are granted to the app that runs
+the command (Terminal, VS Code, …), not to Bolum.
 
 ## Usage
 
