@@ -35,7 +35,7 @@ Download the latest installer from
 
 | Platform | File |
 | --- | --- |
-| macOS 11+ (Apple Silicon) | `Bolum_<version>_aarch64.dmg` |
+| macOS 13.4+ (Apple Silicon) | `Bolum_<version>_aarch64.dmg` |
 | Linux x86_64, any distribution | `Bolum_<version>_amd64.AppImage` |
 | Debian / Ubuntu | `Bolum_<version>_amd64.deb` |
 
@@ -53,7 +53,7 @@ To build from source instead, see [Build and run](#build-and-run).
 
 ### macOS
 
-- macOS 11 or later (Apple Silicon or Intel)
+- macOS 13.4 or later (Apple Silicon, or Intel when building from source)
 - Rust (stable), Node.js 20+ and `cmake` (`brew install rust node cmake`)
 - Xcode Command Line Tools (`xcode-select --install`)
 
@@ -194,8 +194,6 @@ shortcut / `bolum toggle`
 
 ## Credits
 
-- [Handy](https://github.com/cjpais/Handy) (MIT) for the product shape, the settings
-  layout and the model-download strategy this project follows.
 - [whisper.cpp](https://github.com/ggml-org/whisper.cpp) and
   [whisper-rs](https://github.com/tazz4843/whisper-rs) for local Whisper inference.
 - [onnx-asr](https://github.com/istupakov/onnx-asr) for the NVIDIA ONNX export contracts.
